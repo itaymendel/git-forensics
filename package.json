@@ -1,5 +1,5 @@
 {
-  "name": "git-forensics",
+  "name": "@itaymendel/git-forensics",
   "version": "0.1.0",
   "description": "Uncover architectural secrets hidden in your git history",
   "type": "module",
@@ -41,6 +41,10 @@
     "url": "https://github.com/itaymendel/git-forensics/issues"
   },
   "homepage": "https://github.com/itaymendel/git-forensics#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
   "engines": {
     "node": ">=22"
   },
