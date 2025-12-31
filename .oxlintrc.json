@@ -1,0 +1,86 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "jsPlugins": ["oxlint-plugin-complexity"],
+  "plugins": ["typescript", "import", "promise", "unicorn"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    // === Complexity Plugin ===
+    "complexity/max-cyclomatic": ["error", { "max": 20 }],
+    "complexity/max-cognitive": ["error", { "max": 15 }],
+
+    // === Code Quality (Correctness) ===
+    "no-console": "warn",
+    "no-debugger": "error",
+    "no-empty": "warn",
+    "no-extra-boolean-cast": "warn",
+    "no-irregular-whitespace": "error",
+
+    // === TypeScript Specific ===
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-non-null-assertion": "warn",
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
+    "@typescript-eslint/no-require-imports": "error",
+    "@typescript-eslint/prefer-as-const": "error",
+    "@typescript-eslint/ban-ts-comment": "warn",
+
+    // === Import Rules ===
+    "import/no-duplicates": "warn",
+    "import/no-self-import": "error",
+    "import/no-cycle": "warn",
+    "import/first": "warn",
+
+    // === Promise Rules ===
+    "promise/no-return-wrap": "error",
+    "promise/param-names": "error",
+    "promise/no-new-statics": "error",
+
+    // === Unicorn (Modern JavaScript Best Practices) ===
+    "unicorn/no-typeof-undefined": "warn",
+    "unicorn/no-useless-spread": "warn",
+    "unicorn/prefer-array-flat-map": "warn",
+    "unicorn/prefer-array-some": "warn",
+    "unicorn/prefer-includes": "warn",
+    "unicorn/prefer-string-starts-ends-with": "warn",
+    "unicorn/throw-new-error": "error",
+    "unicorn/no-instanceof-builtins": "warn",
+    "unicorn/prefer-number-properties": "warn",
+    "unicorn/no-negated-condition": "warn",
+
+    // === Best Practices ===
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-var": "error",
+    "prefer-const": "warn",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-return-assign": "warn",
+    "no-throw-literal": "error",
+    "no-useless-constructor": "warn",
+    "no-useless-rename": "warn",
+    "require-await": "warn",
+    "default-case-last": "warn",
+    "no-else-return": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.spec.ts"],
+      "rules": {
+        "no-console": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-non-null-assertion": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["dist", "node_modules", "*.min.js", "coverage", "scripts"]
+}

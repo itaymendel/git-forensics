@@ -1,0 +1,65 @@
+{
+  "name": "git-forensics",
+  "version": "0.1.0",
+  "description": "Uncover architectural secrets hidden in your git history",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "oxlint --config .oxlintrc.json",
+    "lint:fix": "oxlint --config .oxlintrc.json --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepare": "husky"
+  },
+  "keywords": [
+    "git",
+    "forensics",
+    "code-analysis",
+    "hotspots",
+    "temporal-coupling",
+    "code-ownership",
+    "architecture"
+  ],
+  "author": "Itay Mendelawy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/itaymendel/git-forensics.git"
+  },
+  "bugs": {
+    "url": "https://github.com/itaymendel/git-forensics/issues"
+  },
+  "homepage": "https://github.com/itaymendel/git-forensics#readme",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.0.0",
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "indent-complexity": "^0.1.0",
+    "picomatch": "^4.0.3",
+    "simple-git": "^3.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.3",
+    "@types/picomatch": "^4.0.2",
+    "husky": "^9.1.7",
+    "oxlint": "1.35.0",
+    "oxlint-plugin-complexity": "^0.1.2",
+    "prettier": "3.7.4",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  }
+}
