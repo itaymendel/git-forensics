@@ -12,8 +12,8 @@ importers:
         specifier: ^8.17.1
         version: 8.17.1
       indent-complexity:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.1.1
+        version: 0.1.1
       picomatch:
         specifier: ^4.0.3
         version: 4.0.3
@@ -523,8 +523,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  indent-complexity@0.1.0:
-    resolution: {integrity: sha512-9aljS+1qQYKmnuoHUZeRdFX7nYEfY5y4i7qVd2v79rUD8ScaYlN9ycEpuzTfaaD8IDM7zv2XgjCaUAt8STtbfA==}
+  indent-complexity@0.1.1:
+    resolution: {integrity: sha512-6pppqPHjwy+m2aqEwjETmG+OWcd31lNU/mDi7ogrcs9NsL4oQAUny8RMC1JK/MocWT2kqZWX1WgAKGBtxnXDxA==}
     engines: {node: '>=20'}
 
   joycon@3.1.1:
@@ -1159,7 +1159,7 @@ snapshots:
 
   husky@9.1.7: {}
 
-  indent-complexity@0.1.0:
+  indent-complexity@0.1.1:
     dependencies:
       detect-indent: 7.0.2
 
