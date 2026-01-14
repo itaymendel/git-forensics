@@ -59,11 +59,11 @@
     "@types/node": "^22.19.3",
     "@types/picomatch": "^4.0.2",
     "husky": "^9.1.7",
-    "oxlint": "1.35.0",
-    "oxlint-plugin-complexity": "^0.1.2",
+    "oxlint": "1.39.0",
+    "oxlint-plugin-complexity": "^0.2.0",
     "prettier": "3.7.4",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.17"
   }
 }
