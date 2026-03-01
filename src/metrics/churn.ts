@@ -12,11 +12,11 @@ export function computeChurn(stats: AggregatedStats, options: ChurnOptions = {})
 
   const results: FileChurn[] = [];
 
-  for (const [file, fileStats] of stats.fileStats) {
+  for (const [file, fileStats] of Object.entries(stats.fileStats)) {
     let added = 0;
     let deleted = 0;
 
-    for (const contrib of fileStats.authorContributions.values()) {
+    for (const contrib of Object.values(fileStats.authorContributions)) {
       added += contrib.additions;
       deleted += contrib.deletions;
     }

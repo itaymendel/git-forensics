@@ -30,20 +30,20 @@ export interface FileRevisions {
 
 /** Temporally coupled file pair */
 export interface CoupledPair {
-  readonly fileA: string;
-  readonly fileB: string;
+  readonly file1: string;
+  readonly file2: string;
   readonly couplingPercent: number;
   readonly coChanges: number;
-  /** Whether fileA currently exists in the repository */
-  readonly fileAExists: boolean;
-  /** Whether fileB currently exists in the repository */
-  readonly fileBExists: boolean;
+  /** Whether file1 currently exists in the repository */
+  readonly file1Exists: boolean;
+  /** Whether file2 currently exists in the repository */
+  readonly file2Exists: boolean;
 }
 
-/** Sum of Coupling for a file */
-export interface FileSoc {
+/** Sum of Coupling for a file — how many other files change alongside this one */
+export interface FileCoupling {
   readonly file: string;
-  readonly soc: number;
+  readonly couplingScore: number;
   /** Whether the file currently exists in the repository */
   readonly exists: boolean;
 }
@@ -107,10 +107,18 @@ export interface AuthorContribution {
   readonly revisions: number;
 }
 
+/** Per-metric truncation info — present only when topN caused data to be capped */
+export interface TruncationInfo {
+  /** Whether this metric's results were truncated by topN */
+  readonly truncated: boolean;
+  /** Total results before topN was applied */
+  readonly totalBeforeTopN: number;
+}
+
 /** Metadata about the forensics analysis */
 export interface ForensicsMetadata {
-  /** Maximum commits that were requested for analysis */
-  readonly maxCommitsRequested: number;
+  /** Maximum commits analyzed */
+  readonly maxCommitsAnalyzed: number;
   /** Maximum results per metric */
   readonly topN: number;
   /** Total unique files found in analyzed commits */
@@ -119,6 +127,15 @@ export interface ForensicsMetadata {
   readonly totalAuthors: number;
   /** Analysis timestamp (ISO 8601) */
   readonly analyzedAt: string;
+  /** Per-metric truncation details (only present when topN is applied) */
+  readonly truncation?: {
+    readonly hotspots: TruncationInfo;
+    readonly couplingRankings: TruncationInfo;
+    readonly codeAge: TruncationInfo;
+    readonly ownership: TruncationInfo;
+    readonly churn: TruncationInfo;
+    readonly communication: TruncationInfo;
+  };
 }
 
 /** Complete forensics result */
@@ -133,7 +150,7 @@ export interface Forensics {
   /** Files sorted by revision count (most changed first) */
   readonly hotspots: readonly FileRevisions[];
   readonly coupledPairs: readonly CoupledPair[];
-  readonly socRankings: readonly FileSoc[];
+  readonly couplingRankings: readonly FileCoupling[];
   /** Files sorted by age (oldest first) - stale code detection */
   readonly codeAge: readonly FileAge[];
   /** Files with ownership info - who owns what */
@@ -189,12 +206,8 @@ export interface GitLogData {
   readonly trackedFiles: string;
 }
 
-/** Options for forensics computation */
-export interface ForensicsOptions {
-  /** Max commits to analyze (default: 1000) */
-  maxCommits?: number;
-  /** Only analyze commits after this date */
-  since?: string;
+/** Shared options between git-based and data-driven forensics APIs */
+export interface BaseForensicsOptions {
   /** Max results per metric (default: 50) */
   topN?: number;
   /** Glob patterns to exclude from analysis */
@@ -207,11 +220,19 @@ export interface ForensicsOptions {
   skipMergeCommits?: boolean;
   /** Whether to follow file renames (default: true) */
   followRenames?: boolean;
+}
+
+/** Options for forensics computation */
+export interface ForensicsOptions extends BaseForensicsOptions {
+  /** Max commits to analyze (default: 1000) */
+  maxCommits?: number;
+  /** Only analyze commits after this date */
+  since?: string;
   /**
-   * Calculate complexity for hotspot scoring (default: true).
-   * When enabled, hotspots will include complexity and score fields,
+   * Calculate complexity for hotspot scoring (default: false).
+   * When enabled, reads every existing file from disk to compute indentation-based complexity.
+   * Hotspots will include complexity and score fields,
    * and will be sorted by score (revisions × complexity) instead of revisions.
-   * Set to false to disable complexity calculation.
    */
   complexity?: boolean;
 }
@@ -220,23 +241,11 @@ export interface ForensicsOptions {
  * Options for computeForensicsFromData().
  * Excludes maxCommits and since (user controls these when fetching data).
  */
-export interface ForensicsFromDataOptions {
-  /** Max results per metric (default: 50) */
-  topN?: number;
-  /** Glob patterns to exclude from analysis */
-  exclude?: string[];
-  /** Maps author names/emails to canonical name */
-  authorMap?: Record<string, string>;
-  /** Minimum revisions for a file to be included in results (default: 1) */
-  minRevisions?: number;
-  /** Whether to skip merge commits (default: true) */
-  skipMergeCommits?: boolean;
-  /** Whether to follow file renames (default: true) */
-  followRenames?: boolean;
+export interface ForensicsFromDataOptions extends BaseForensicsOptions {
   /**
    * Pre-calculated complexity scores per file path.
    * When provided, hotspots will include complexity and score fields,
    * and will be sorted by score (revisions × complexity) instead of revisions.
    */
-  complexity?: Record<string, number>;
+  complexityScores?: Record<string, number>;
 }

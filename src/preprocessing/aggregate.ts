@@ -12,15 +12,15 @@ export interface CommitEntry {
 /** Aggregated statistics for a single file */
 export interface FileStats {
   /** Commit history grouped by author (enables temporal + cross-ref analysis) */
-  readonly byAuthor: ReadonlyMap<string, readonly CommitEntry[]>;
-  /** SOC score (depends on commit context, pre-computed during aggregation) */
-  readonly socScore: number;
+  readonly byAuthor: Readonly<Record<string, readonly CommitEntry[]>>;
+  /** Coupling score: sum of co-changed files across all commits (pre-computed during aggregation) */
+  readonly couplingScore: number;
   /** Total revision count (pre-computed: sum of commits across all authors) */
   readonly totalRevisions: number;
   /** Most recent commit info (pre-computed: max timestamp across all commits) */
   readonly latestCommit: { readonly date: string; readonly timestamp: number } | null;
   /** Contribution breakdown per author (additions, deletions, revisions) */
-  readonly authorContributions: ReadonlyMap<string, AuthorContribution>;
+  readonly authorContributions: Readonly<Record<string, AuthorContribution>>;
   /**
    * Historical names for this file, ordered oldest → newest.
    * Excludes current name (that's the map key).
@@ -34,14 +34,14 @@ export interface FileStats {
 /** Result of single-pass aggregation over commits */
 export interface AggregatedStats {
   /** Per-file statistics */
-  readonly fileStats: ReadonlyMap<string, FileStats>;
-  /** Pair co-change counts: "fileA::fileB" → count */
-  readonly pairCoChanges: ReadonlyMap<string, number>;
+  readonly fileStats: Readonly<Record<string, FileStats>>;
+  /** Pair co-change counts: "file1::file2" → count */
+  readonly pairCoChanges: Readonly<Record<string, number>>;
 }
 
 /** Options for commit aggregation */
 export interface AggregateOptions {
-  /** Skip commits with more than this many files for SOC/coupling (default: 50) */
+  /** Skip commits with more than this many files for coupling score (default: 50) */
   maxFilesPerCommit?: number;
 }
 
@@ -53,7 +53,7 @@ interface MutableAuthorContribution {
 
 interface MutableFileStats {
   byAuthor: Map<string, CommitEntry[]>;
-  socScore: number;
+  couplingScore: number;
   totalRevisions: number;
   latestCommit: { date: string; timestamp: number } | null;
   authorContributions: Map<string, MutableAuthorContribution>;
@@ -64,12 +64,12 @@ interface MutableFileStats {
 function createEmptyFileStats(): MutableFileStats {
   return {
     byAuthor: new Map<string, CommitEntry[]>(),
-    socScore: 0,
+    couplingScore: 0,
     totalRevisions: 0,
     latestCommit: null,
     authorContributions: new Map<string, MutableAuthorContribution>(),
     nameHistory: [],
-    exists: true,
+    exists: false,
   };
 }
 
@@ -77,17 +77,19 @@ function countPairsInCommit(
   resolvedFiles: readonly string[],
   pairCoChanges: Map<string, number>
 ): void {
-  const uniqueFiles = [...new Set(resolvedFiles)].toSorted();
+  const uniqueFiles = [...new Set(resolvedFiles)];
 
   for (let i = 0; i < uniqueFiles.length; i++) {
+    const fileA = uniqueFiles[i] as string;
     for (let j = i + 1; j < uniqueFiles.length; j++) {
-      const key = `${uniqueFiles[i]}::${uniqueFiles[j]}`;
+      const fileB = uniqueFiles[j] as string;
+      const [a, b] = fileA < fileB ? [fileA, fileB] : [fileB, fileA];
+      const key = `${a}::${b}`;
       pairCoChanges.set(key, (pairCoChanges.get(key) ?? 0) + 1);
     }
   }
 }
 
-/** Track file rename in the name resolution map and history. */
 function handleRename(
   change: FileChange,
   resolvedName: string,
@@ -100,48 +102,6 @@ function handleRename(
   stats.nameHistory.unshift(change.renamedFrom);
 }
 
-/** Update author's commit history for this file. */
-function addAuthorCommit(
-  stats: MutableFileStats,
-  author: string,
-  commitTimestamp: number,
-  date: string,
-  change: FileChange
-): void {
-  const authorCommits = getOrCreate(stats.byAuthor, author, () => []);
-  authorCommits.push({
-    timestamp: commitTimestamp,
-    date,
-    additions: change.additions,
-    deletions: change.deletions,
-  });
-}
-
-/** Update latest commit if this one is newer. */
-function updateLatestCommit(stats: MutableFileStats, date: string, timestamp: number): void {
-  const isNewer = !stats.latestCommit || timestamp > stats.latestCommit.timestamp;
-  if (isNewer) {
-    stats.latestCommit = { date, timestamp };
-  }
-}
-
-/** Update author contribution totals. */
-function updateAuthorContributions(
-  stats: MutableFileStats,
-  author: string,
-  change: FileChange
-): void {
-  const contrib = getOrCreate(stats.authorContributions, author, () => ({
-    additions: 0,
-    deletions: 0,
-    revisions: 0,
-  }));
-  contrib.additions += change.additions;
-  contrib.deletions += change.deletions;
-  contrib.revisions += 1;
-}
-
-/** Process a single file change within a commit. */
 function processFileChange(
   change: FileChange,
   commit: CommitLog,
@@ -156,13 +116,35 @@ function processFileChange(
   handleRename(change, resolvedName, currentName, fileStats);
 
   const stats = getOrCreate(fileStats, resolvedName, createEmptyFileStats);
-  addAuthorCommit(stats, commit.author, commitTimestamp, commit.date, change);
+
+  // Record author commit
+  const authorCommits = getOrCreate(stats.byAuthor, commit.author, () => []);
+  authorCommits.push({
+    timestamp: commitTimestamp,
+    date: commit.date,
+    additions: change.additions,
+    deletions: change.deletions,
+  });
+
   stats.totalRevisions += 1;
-  updateLatestCommit(stats, commit.date, commitTimestamp);
-  updateAuthorContributions(stats, commit.author, change);
+
+  // Update latest commit
+  if (!stats.latestCommit || commitTimestamp > stats.latestCommit.timestamp) {
+    stats.latestCommit = { date: commit.date, timestamp: commitTimestamp };
+  }
+
+  // Update author contributions
+  const contrib = getOrCreate(stats.authorContributions, commit.author, () => ({
+    additions: 0,
+    deletions: 0,
+    revisions: 0,
+  }));
+  contrib.additions += change.additions;
+  contrib.deletions += change.deletions;
+  contrib.revisions += 1;
 
   if (isMultiFileCommit) {
-    stats.socScore += fileCount - 1;
+    stats.couplingScore += fileCount - 1;
   }
 }
 
@@ -179,6 +161,8 @@ export function aggregateCommits(
 
   for (const commit of commits) {
     const commitTimestamp = new Date(commit.date).getTime();
+    if (Number.isNaN(commitTimestamp)) continue;
+
     const files = commit.files;
     const fileCount = files.length;
     const isMultiFileCommit = fileCount >= 2 && fileCount <= maxFilesPerCommit;
@@ -201,5 +185,17 @@ export function aggregateCommits(
     }
   }
 
-  return { fileStats: fileStats as Map<string, FileStats>, pairCoChanges };
+  const fileStatsRecord: Record<string, FileStats> = {};
+  for (const [file, stats] of fileStats) {
+    fileStatsRecord[file] = {
+      ...stats,
+      byAuthor: Object.fromEntries(stats.byAuthor),
+      authorContributions: Object.fromEntries(stats.authorContributions),
+    };
+  }
+
+  return {
+    fileStats: fileStatsRecord,
+    pairCoChanges: Object.fromEntries(pairCoChanges),
+  };
 }

@@ -1,8 +1,12 @@
 import Ajv from 'ajv';
 import type { Forensics, ForensicsFromDataOptions, GitLogData, CommitLog } from './types.js';
 import { transformGitLog } from './commit-log.js';
-import { filterCommitFiles, normalizeAuthors, aggregateCommits } from './preprocessing/index.js';
-import type { AggregatedStats, FileStats } from './preprocessing/aggregate.js';
+import {
+  filterCommitFiles,
+  normalizeAuthors,
+  aggregateCommits,
+  enrichWithExistenceFromSet,
+} from './preprocessing/index.js';
 import { filterMergeCommits, computeForensicsCore } from './orchestrator.js';
 
 /** JSON Schema for GitLogData - the complete input for computeForensicsFromData() */
@@ -71,20 +75,6 @@ function parseTrackedFiles(trackedFiles: string): Set<string> {
   return new Set(trackedFiles.trim().split('\n').filter(Boolean));
 }
 
-function enrichWithExistenceFromData(
-  stats: AggregatedStats,
-  trackedFiles: string
-): AggregatedStats {
-  const existingFiles = parseTrackedFiles(trackedFiles);
-  const enrichedFileStats = new Map<string, FileStats>();
-
-  for (const [file, fileStats] of stats.fileStats) {
-    enrichedFileStats.set(file, { ...fileStats, exists: existingFiles.has(file) });
-  }
-
-  return { fileStats: enrichedFileStats, pairCoChanges: stats.pairCoChanges };
-}
-
 function validateFromDataOptions(options: ForensicsFromDataOptions): void {
   const { topN, minRevisions } = options;
 
@@ -116,7 +106,7 @@ export function computeForensicsFromData(
     minRevisions = 1,
     skipMergeCommits = true,
     followRenames = true,
-    complexity,
+    complexityScores,
   } = options;
 
   let commits: CommitLog[] = transformGitLog(data.log, { detectRenames: followRenames });
@@ -129,14 +119,14 @@ export function computeForensicsFromData(
   commits = normalizeAuthors(commits, { authorMap });
 
   const rawStats = aggregateCommits(commits, { maxFilesPerCommit: 50 });
-  const stats = enrichWithExistenceFromData(rawStats, data.trackedFiles);
+  const stats = enrichWithExistenceFromSet(rawStats, parseTrackedFiles(data.trackedFiles));
 
-  const complexityMap = complexity ? new Map(Object.entries(complexity)) : undefined;
+  const complexityMap = complexityScores ? new Map(Object.entries(complexityScores)) : undefined;
 
   return computeForensicsCore(commits, stats, {
     topN,
     minRevisions,
     complexity: complexityMap,
-    maxCommitsRequested: commits.length,
+    maxCommitsAnalyzed: commits.length,
   });
 }

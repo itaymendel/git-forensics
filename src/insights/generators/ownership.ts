@@ -29,7 +29,7 @@ export function generateOwnershipInsight(
     fragments: {
       title: 'Fragmented Ownership',
       finding: `${authorCount} contributors, fragmentation score ${fractalValue.toFixed(2)}`,
-      risk: 'No clear owner increases coordination overhead and defect risk',
+      risk: 'Diffuse ownership slows review cycles and increases merge conflicts',
       suggestion: `Request review from ${mainDev} (primary contributor)`,
     },
   };

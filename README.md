@@ -9,9 +9,13 @@ A TypeScript library for providing insights from git commit history.
 - **Works with any language**
 - **Follows file rename and removal**
 - **Optimized for CI**
-- **Integrated [code complexity engine](https://github.com/itaymendel/indent-complexity)**
+- **Integrated (a VERY basic) [code complexity engine](https://github.com/itaymendel/indent-complexity)**
 - **Bring your own code complexity score**
 - **Add custom metrics using full temporal history**
+
+## Motivation
+
+Honestly part exploration after dealing with such questions and digging online for such approaches and part the fact there's no simple library that can be used for such analysis. There are some tools already available ([git-of-theseus](https://github.com/erikbern/git-of-theseus), [code-maat](https://github.com/adamtornhill/code-maat), [git-fame](https://github.com/casperdcl/git-fame), [git-quick-stats](https://github.com/git-quick-stats/git-quick-stats),[MergeStat](https://github.com/mergestat/mergestat-lite), [Hercules](https://github.com/src-d/hercules), [gitinspector](https://github.com/ejwa/gitinspector)), all are great in what they do, but they either do not provide programatic API, or just about generating reports. My goal was to build a library I needed for future ideas. This library can work well alongside any of the mentioned tools.
 
 ## Installation
 
@@ -31,7 +35,7 @@ const forensics = await computeForensics(git);
 forensics.hotspots; // Files changed most often
 forensics.churn; // Code volatility (lines added/deleted)
 forensics.coupledPairs; // Hidden dependencies
-forensics.socRankings; // Architectural hubs
+forensics.couplingRankings; // Architectural hubs
 forensics.codeAge; // Stale code detection
 forensics.ownership; // Knowledge silos
 forensics.communication; // Developer coordination needs
@@ -66,14 +70,14 @@ insight.fragments.suggestion; // "Consider breaking into smaller modules..."
 
 ### Insight thresholds
 
-| Question                            | Metric         | Insight triggers when  |
-| ----------------------------------- | -------------- | ---------------------- |
-| Where's the riskiest code?          | `hotspots`     | ≥25 revisions          |
-| What keeps getting rewritten?       | `churn`        | ≥1000 lines churned    |
-| What hidden dependencies exist?     | `coupledPairs` | ≥70% co-change rate    |
-| What has ripple effects?            | `socRankings`  | Coupled to ≥5 files    |
-| What's been forgotten?              | `codeAge`      | Unchanged ≥12 months   |
-| Who owns what? Any knowledge silos? | `ownership`    | ≥3 authors, fragmented |
+| Question                            | Metric             | Insight triggers when  |
+| ----------------------------------- | ------------------ | ---------------------- |
+| Where's the riskiest code?          | `hotspots`         | ≥25 revisions          |
+| What keeps getting rewritten?       | `churn`            | ≥1000 lines churned    |
+| What hidden dependencies exist?     | `coupledPairs`     | ≥70% co-change rate    |
+| What has ripple effects?            | `couplingRankings` | Coupled to ≥5 files    |
+| What's been forgotten?              | `codeAge`          | Unchanged ≥12 months   |
+| Who owns what? Any knowledge silos? | `ownership`        | ≥3 authors, fragmented |
 
 ### Build your own insights
 
@@ -83,10 +87,10 @@ The `forensics.stats` field contains the complete temporal history—every commi
 const forensics = await computeForensics(git);
 
 // Access raw stats for custom analysis
-for (const [file, fileStats] of forensics.stats.fileStats) {
-  // fileStats.byAuthor: Map<author, CommitEntry[]>
-  // fileStats.authorContributions: Map<author, {additions, deletions, revisions}>
-  // fileStats.totalRevisions, latestCommit, nameHistory, socScore
+for (const [file, fileStats] of Object.entries(forensics.stats.fileStats)) {
+  // fileStats.byAuthor: Record<author, CommitEntry[]>
+  // fileStats.authorContributions: Record<author, {additions, deletions, revisions}>
+  // fileStats.totalRevisions, latestCommit, nameHistory, couplingScore
 }
 ```
 
@@ -127,7 +131,7 @@ git-forensics is fast (~500ms for 60k commits), for very large repos you can eli
 **Step 1: Full analysis (scheduled or first run)**
 
 ```typescript
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 import { computeForensics } from 'git-forensics';
 
 const git = simpleGit();
@@ -147,7 +151,7 @@ await fetch('https://your-server/api/forensics', {
 **Step 2: Fast PR insights (no git scan needed)**
 
 ```typescript
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 import { generateInsights, getChangedFiles } from 'git-forensics';
 
 const git = simpleGit();

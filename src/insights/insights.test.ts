@@ -7,7 +7,7 @@ const mockForensics: Forensics = {
   analyzedCommits: 100,
   dateRange: { from: '2024-01-01', to: '2024-12-01' },
   metadata: {
-    maxCommitsRequested: 1000,
+    maxCommitsAnalyzed: 1000,
     topN: 50,
     totalFilesAnalyzed: 10,
     totalAuthors: 5,
@@ -22,23 +22,23 @@ const mockForensics: Forensics = {
   ],
   coupledPairs: [
     {
-      fileA: 'a.ts',
-      fileB: 'b.ts',
+      file1: 'a.ts',
+      file2: 'b.ts',
       couplingPercent: 85,
       coChanges: 20,
-      fileAExists: true,
-      fileBExists: true,
+      file1Exists: true,
+      file2Exists: true,
     },
     {
-      fileA: 'app.ts',
-      fileB: 'utils.ts',
+      file1: 'app.ts',
+      file2: 'utils.ts',
       couplingPercent: 75,
       coChanges: 15,
-      fileAExists: true,
-      fileBExists: true,
+      file1Exists: true,
+      file2Exists: true,
     },
   ],
-  socRankings: [],
+  couplingRankings: [],
   codeAge: [
     { file: 'old.ts', ageMonths: 18, lastModified: '2023-06-01', exists: true },
     { file: 'app.ts', ageMonths: 6, lastModified: '2024-06-01', exists: true },
@@ -82,7 +82,7 @@ const mockForensics: Forensics = {
     { file: 'utils.ts', added: 100, deleted: 50, churn: 150, revisions: 20, exists: true },
   ],
   communication: [],
-  stats: { fileStats: new Map(), pairCoChanges: new Map() },
+  stats: { fileStats: {}, pairCoChanges: {} },
 };
 
 describe('generateInsights', () => {

@@ -30,7 +30,7 @@ export function generateStaleCodeInsight(
     fragments: {
       title: 'Stale Code',
       finding: `Unchanged for ${ageMonths} months (since ${formatDate(lastModified)})`,
-      risk: 'Long-dormant code may have outdated patterns or hidden issues',
+      risk: 'Untouched code drifts from current conventions and loses institutional knowledge',
       suggestion: 'Extra review recommended; verify tests still cover this code',
     },
   };

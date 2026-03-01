@@ -7,16 +7,17 @@ export interface OwnershipOptions {
   topN?: number;
 }
 
-function computeFractal(contributions: ReadonlyMap<string, AuthorContribution>): number {
+function computeFractal(contributions: Readonly<Record<string, AuthorContribution>>): number {
+  const values = Object.values(contributions);
   let totalAdditions = 0;
-  for (const contrib of contributions.values()) {
+  for (const contrib of values) {
     totalAdditions += contrib.additions;
   }
 
   if (totalAdditions === 0) return 1; // No additions = treat as single owner
 
   let fractal = 0;
-  for (const contrib of contributions.values()) {
+  for (const contrib of values) {
     const ratio = contrib.additions / totalAdditions;
     fractal += ratio * ratio;
   }
@@ -24,7 +25,7 @@ function computeFractal(contributions: ReadonlyMap<string, AuthorContribution>):
   return Math.round(fractal * 100) / 100;
 }
 
-function findMainDevByAdditions(contributions: ReadonlyMap<string, AuthorContribution>): {
+function findMainDevByAdditions(contributions: Readonly<Record<string, AuthorContribution>>): {
   mainDev: string;
   maxAdditions: number;
   totalAdditions: number;
@@ -33,7 +34,7 @@ function findMainDevByAdditions(contributions: ReadonlyMap<string, AuthorContrib
   let maxAdditions = 0;
   let totalAdditions = 0;
 
-  for (const [author, contrib] of contributions) {
+  for (const [author, contrib] of Object.entries(contributions)) {
     totalAdditions += contrib.additions;
     if (contrib.additions > maxAdditions) {
       maxAdditions = contrib.additions;
@@ -44,7 +45,7 @@ function findMainDevByAdditions(contributions: ReadonlyMap<string, AuthorContrib
   return { mainDev, maxAdditions, totalAdditions };
 }
 
-function findRefactoringDev(contributions: ReadonlyMap<string, AuthorContribution>): {
+function findRefactoringDev(contributions: Readonly<Record<string, AuthorContribution>>): {
   refactoringDev: string;
   maxDeletions: number;
   totalDeletions: number;
@@ -53,7 +54,7 @@ function findRefactoringDev(contributions: ReadonlyMap<string, AuthorContributio
   let maxDeletions = 0;
   let totalDeletions = 0;
 
-  for (const [author, contrib] of contributions) {
+  for (const [author, contrib] of Object.entries(contributions)) {
     totalDeletions += contrib.deletions;
     if (contrib.deletions > maxDeletions) {
       maxDeletions = contrib.deletions;
@@ -72,9 +73,9 @@ export function computeOwnership(
 
   const results: FileOwnership[] = [];
 
-  for (const [file, fileStats] of stats.fileStats) {
+  for (const [file, fileStats] of Object.entries(stats.fileStats)) {
     const contributions = fileStats.authorContributions;
-    if (contributions.size === 0) continue;
+    if (Object.keys(contributions).length === 0) continue;
 
     const { mainDev, maxAdditions, totalAdditions } = findMainDevByAdditions(contributions);
     const { refactoringDev, maxDeletions, totalDeletions } = findRefactoringDev(contributions);
@@ -92,7 +93,7 @@ export function computeOwnership(
       refactoringDev,
       refactoringOwnership,
       fractalValue: computeFractal(contributions),
-      authorCount: contributions.size,
+      authorCount: Object.keys(contributions).length,
       exists: fileStats.exists,
     });
   }

@@ -13,7 +13,7 @@ import {
   generateOwnershipInsight,
   generateStaleCodeInsight,
   generateChurnInsight,
-  generateSocInsight,
+  generateCouplingScoreInsight,
 } from './generators/index.js';
 
 const SEVERITY_ORDER: Record<InsightSeverity, number> = {
@@ -22,22 +22,20 @@ const SEVERITY_ORDER: Record<InsightSeverity, number> = {
   critical: 2,
 };
 
-/** Lookup maps for efficient file data access. */
 interface ForensicsLookups {
   hotspotMap: Map<string, { data: Forensics['hotspots'][number]; rank: number }>;
   ageMap: Map<string, Forensics['codeAge'][number]>;
   ownershipMap: Map<string, Forensics['ownership'][number]>;
   churnMap: Map<string, Forensics['churn'][number]>;
-  socMap: Map<string, { data: Forensics['socRankings'][number]; rank: number }>;
+  couplingScoreMap: Map<string, { data: Forensics['couplingRankings'][number]; rank: number }>;
   couplingMap: Map<string, CoupledPair[]>;
 }
 
-/** Build all lookup maps from forensics data. */
 function buildLookups(forensics: Forensics): ForensicsLookups {
   const couplingMap = new Map<string, CoupledPair[]>();
   for (const pair of forensics.coupledPairs) {
-    getOrCreate(couplingMap, pair.fileA, () => []).push(pair);
-    getOrCreate(couplingMap, pair.fileB, () => []).push(pair);
+    getOrCreate(couplingMap, pair.file1, () => []).push(pair);
+    getOrCreate(couplingMap, pair.file2, () => []).push(pair);
   }
 
   return {
@@ -47,25 +45,23 @@ function buildLookups(forensics: Forensics): ForensicsLookups {
     ageMap: new Map(forensics.codeAge.map((a) => [a.file, a] as const)),
     ownershipMap: new Map(forensics.ownership.map((o) => [o.file, o] as const)),
     churnMap: new Map(forensics.churn.map((c) => [c.file, c] as const)),
-    socMap: new Map(
-      forensics.socRankings.map((s, i) => [s.file, { data: s, rank: i + 1 }] as const)
+    couplingScoreMap: new Map(
+      forensics.couplingRankings.map((s, i) => [s.file, { data: s, rank: i + 1 }] as const)
     ),
     couplingMap,
   };
 }
 
-/** Collect all unique files from forensics data. */
 function getAllFiles(forensics: Forensics): string[] {
   const files = new Set<string>();
   for (const h of forensics.hotspots) files.add(h.file);
   for (const c of forensics.codeAge) files.add(c.file);
   for (const o of forensics.ownership) files.add(o.file);
   for (const c of forensics.churn) files.add(c.file);
-  for (const s of forensics.socRankings) files.add(s.file);
+  for (const s of forensics.couplingRankings) files.add(s.file);
   return [...files];
 }
 
-/** Generate insights for a single file. */
 function generateInsightsForFile(
   file: string,
   lookups: ForensicsLookups,
@@ -94,13 +90,16 @@ function generateInsightsForFile(
   const churn = lookups.churnMap.get(file);
   if (churn) pushIfPresent(insights, generateChurnInsight(churn, thresholds));
 
-  const soc = lookups.socMap.get(file);
-  if (soc) pushIfPresent(insights, generateSocInsight(soc.data, soc.rank, thresholds));
+  const couplingScore = lookups.couplingScoreMap.get(file);
+  if (couplingScore)
+    pushIfPresent(
+      insights,
+      generateCouplingScoreInsight(couplingScore.data, couplingScore.rank, thresholds)
+    );
 
   return insights;
 }
 
-/** Generate actionable insights from forensics data. */
 export function generateInsights(
   forensics: Forensics,
   options: GenerateInsightsOptions = {}

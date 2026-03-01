@@ -5,7 +5,7 @@ export type InsightType =
   | 'ownership-risk'
   | 'stale-code'
   | 'high-churn'
-  | 'soc';
+  | 'coupling-score';
 
 /** Severity levels for insights */
 export type InsightSeverity = 'info' | 'warning' | 'critical';
@@ -32,7 +32,7 @@ export type InsightData =
       readonly added: number;
       readonly deleted: number;
     }
-  | { readonly type: 'soc'; readonly soc: number; readonly rank: number };
+  | { readonly type: 'coupling-score'; readonly couplingScore: number; readonly rank: number };
 
 /** Message fragments for easy annotation building */
 export interface InsightFragments {
@@ -89,7 +89,7 @@ export interface InsightThresholds {
     readonly warning: number;
     readonly critical: number;
   };
-  readonly soc: {
+  readonly couplingScore: {
     readonly warning: number;
     readonly critical: number;
   };

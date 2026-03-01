@@ -4,8 +4,8 @@ export type { RevisionsOptions } from './revisions.js';
 export { computeCoupledPairs } from './coupled-pairs.js';
 export type { CoupledPairsOptions } from './coupled-pairs.js';
 
-export { computeSoc } from './soc.js';
-export type { SocOptions } from './soc.js';
+export { computeCouplingScore } from './coupling-score.js';
+export type { CouplingScoreOptions } from './coupling-score.js';
 
 export { computeCodeAge } from './code-age.js';
 export type { CodeAgeOptions } from './code-age.js';

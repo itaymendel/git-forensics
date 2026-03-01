@@ -39,7 +39,7 @@ describe('generateHotspotInsight', () => {
 
     expect(result!.fragments.title).toBe('Hotspot');
     expect(result!.fragments.finding).toBe('47 revisions, ranked #3 in repository');
-    expect(result!.fragments.risk).toContain('defect');
+    expect(result!.fragments.risk).toContain('refactoring');
     expect(result!.fragments.suggestion).toContain('coverage');
   });
 });
@@ -47,24 +47,24 @@ describe('generateHotspotInsight', () => {
 describe('generateCouplingInsight', () => {
   it('should return null when coupling below minPercent', () => {
     const pair: CoupledPair = {
-      fileA: 'a.ts',
-      fileB: 'b.ts',
+      file1: 'a.ts',
+      file2: 'b.ts',
       couplingPercent: 50,
       coChanges: 10,
-      fileAExists: true,
-      fileBExists: true,
+      file1Exists: true,
+      file2Exists: true,
     };
     expect(generateCouplingInsight('a.ts', pair, ['a.ts'], thresholds)).toBeNull();
   });
 
   it('should generate insight when coupled file is not in PR', () => {
     const pair: CoupledPair = {
-      fileA: 'a.ts',
-      fileB: 'b.ts',
+      file1: 'a.ts',
+      file2: 'b.ts',
       couplingPercent: 85,
       coChanges: 20,
-      fileAExists: true,
-      fileBExists: true,
+      file1Exists: true,
+      file2Exists: true,
     };
     const result = generateCouplingInsight('a.ts', pair, ['a.ts'], thresholds);
 
@@ -81,12 +81,12 @@ describe('generateCouplingInsight', () => {
 
   it('should set bothInPR true when both files in PR', () => {
     const pair: CoupledPair = {
-      fileA: 'a.ts',
-      fileB: 'b.ts',
+      file1: 'a.ts',
+      file2: 'b.ts',
       couplingPercent: 85,
       coChanges: 20,
-      fileAExists: true,
-      fileBExists: true,
+      file1Exists: true,
+      file2Exists: true,
     };
     const result = generateCouplingInsight('a.ts', pair, ['a.ts', 'b.ts'], thresholds);
 
@@ -98,12 +98,12 @@ describe('generateCouplingInsight', () => {
 
   it('should return null when warnIfMissingFromPR is false and both in PR', () => {
     const pair: CoupledPair = {
-      fileA: 'a.ts',
-      fileB: 'b.ts',
+      file1: 'a.ts',
+      file2: 'b.ts',
       couplingPercent: 85,
       coChanges: 20,
-      fileAExists: true,
-      fileBExists: true,
+      file1Exists: true,
+      file2Exists: true,
     };
     const customThresholds: InsightThresholds = {
       ...thresholds,
@@ -114,12 +114,12 @@ describe('generateCouplingInsight', () => {
 
   it('should include suggestion to review coupled file', () => {
     const pair: CoupledPair = {
-      fileA: 'user.ts',
-      fileB: 'permissions.ts',
+      file1: 'user.ts',
+      file2: 'permissions.ts',
       couplingPercent: 85,
       coChanges: 20,
-      fileAExists: true,
-      fileBExists: true,
+      file1Exists: true,
+      file2Exists: true,
     };
     const result = generateCouplingInsight('user.ts', pair, ['user.ts'], thresholds);
 

@@ -17,7 +17,7 @@ export function computeCodeAge(stats: AggregatedStats, options: CodeAgeOptions =
 
   const results: FileAge[] = [];
 
-  for (const [file, fileStats] of stats.fileStats) {
+  for (const [file, fileStats] of Object.entries(stats.fileStats)) {
     const lastMod = fileStats.latestCommit;
     if (!lastMod) continue;
 

@@ -98,6 +98,8 @@ export async function getCommitLog(
 
   const log = await git.log(logOptions);
 
+  // SAFETY: simple-git's LogResult type doesn't reflect --stat/--parents fields,
+  // but the runtime shape matches our GitLog interface because we control logOptions above.
   return transformGitLog(log as unknown as GitLog, { detectRenames });
 }
 
