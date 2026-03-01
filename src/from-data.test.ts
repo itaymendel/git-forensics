@@ -42,4 +42,53 @@ describe('computeForensicsFromData', () => {
     const result = computeForensicsFromData(data);
     expect(result.hotspots[0]?.exists).toBe(false);
   });
+
+  describe('complexityScores option', () => {
+    it('should sort hotspots by score when complexityScores provided', () => {
+      const commits = [
+        commit({ files: [file('low-rev.ts'), file('high-rev.ts')] }),
+        commit({ files: [file('high-rev.ts')] }),
+        commit({ files: [file('high-rev.ts')] }),
+      ];
+      const data = createGitLogData(commits);
+
+      const result = computeForensicsFromData(data, {
+        complexityScores: {
+          'low-rev.ts': 100, // 1 revision × 100 = score 100
+          'high-rev.ts': 1, // 3 revisions × 1  = score 3
+        },
+      });
+
+      expect(result.hotspots[0]!.file).toBe('low-rev.ts');
+      expect(result.hotspots[0]!.score).toBe(100);
+      expect(result.hotspots[1]!.file).toBe('high-rev.ts');
+      expect(result.hotspots[1]!.score).toBe(3);
+    });
+
+    it('should include complexity value on each hotspot entry', () => {
+      const commits = [commit({ files: [file('app.ts')] })];
+      const data = createGitLogData(commits);
+
+      const result = computeForensicsFromData(data, {
+        complexityScores: { 'app.ts': 42 },
+      });
+
+      expect(result.hotspots[0]!.complexity).toBe(42);
+      expect(result.hotspots[0]!.score).toBe(42); // 1 revision × 42
+    });
+
+    it('should sort by revisions when complexityScores not provided', () => {
+      const commits = [
+        commit({ files: [file('low.ts'), file('high.ts')] }),
+        commit({ files: [file('high.ts')] }),
+        commit({ files: [file('high.ts')] }),
+      ];
+      const data = createGitLogData(commits);
+
+      const result = computeForensicsFromData(data);
+
+      expect(result.hotspots[0]!.file).toBe('high.ts');
+      expect(result.hotspots[0]!.score).toBeUndefined();
+    });
+  });
 });

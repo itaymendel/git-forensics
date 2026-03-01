@@ -111,6 +111,51 @@ describe('aggregateCommits', () => {
     });
   });
 
+  describe('NaN date handling', () => {
+    it('should skip commits with invalid dates', () => {
+      const commits = [
+        commit({
+          date: 'not-a-date',
+          files: [file('skipped.ts', { additions: 100 })],
+        }),
+        commit({
+          date: '2024-06-15T10:00:00Z',
+          files: [file('valid.ts', { additions: 5 })],
+        }),
+      ];
+
+      const stats = aggregateCommits(commits);
+
+      expect(Object.keys(stats.fileStats)).toHaveLength(1);
+      expect('valid.ts' in stats.fileStats).toBe(true);
+      expect('skipped.ts' in stats.fileStats).toBe(false);
+    });
+
+    it('should skip commits with empty date strings', () => {
+      const commits = [
+        commit({ date: '', files: [file('empty-date.ts')] }),
+        commit({ date: '2024-01-15T10:00:00Z', files: [file('ok.ts')] }),
+      ];
+
+      const stats = aggregateCommits(commits);
+
+      expect(Object.keys(stats.fileStats)).toHaveLength(1);
+      expect('ok.ts' in stats.fileStats).toBe(true);
+    });
+
+    it('should return empty stats when all commits have invalid dates', () => {
+      const commits = [
+        commit({ date: 'garbage', files: [file('a.ts')] }),
+        commit({ date: 'also-garbage', files: [file('b.ts')] }),
+      ];
+
+      const stats = aggregateCommits(commits);
+
+      expect(Object.keys(stats.fileStats)).toHaveLength(0);
+      expect(Object.keys(stats.pairCoChanges)).toHaveLength(0);
+    });
+  });
+
   describe('rename handling', () => {
     it('should consolidate stats for renamed file under current name', () => {
       const commits = SCENARIOS.simpleRename();

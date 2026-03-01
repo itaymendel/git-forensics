@@ -190,4 +190,34 @@ describe('extractFileMetrics', () => {
 
     expect(metrics[0]!.coupledWith).toHaveLength(0);
   });
+
+  it('should use fallback values when file appears in only some maps', () => {
+    // "hot.ts" is in hotspots (60 revisions) but NOT in codeAge, ownership, or churn
+    const metrics = extractFileMetrics(mockForensics);
+    const hotMetrics = metrics.find((m) => m.file === 'hot.ts');
+
+    expect(hotMetrics).toBeDefined();
+    expect(hotMetrics!.revisions).toBe(60); // present in hotspots
+    expect(hotMetrics!.ageMonths).toBe(0); // fallback: 0
+    expect(hotMetrics!.lastModified).toBe(''); // fallback: ''
+    expect(hotMetrics!.churn).toBe(0); // fallback: 0
+    expect(hotMetrics!.added).toBe(0); // fallback: 0
+    expect(hotMetrics!.deleted).toBe(0); // fallback: 0
+    expect(hotMetrics!.fractalValue).toBe(1); // fallback: 1 (single owner)
+    expect(hotMetrics!.mainDev).toBe('unknown'); // fallback: 'unknown'
+    expect(hotMetrics!.authorCount).toBe(0); // fallback: 0
+    expect(hotMetrics!.coupledWith).toEqual([]); // fallback: []
+  });
+
+  it('should use fallback values for files only in churn', () => {
+    // "volatile.ts" only appears in churn, not in hotspots/codeAge/ownership
+    const metrics = extractFileMetrics(mockForensics);
+    const volatileMetrics = metrics.find((m) => m.file === 'volatile.ts');
+
+    expect(volatileMetrics).toBeDefined();
+    expect(volatileMetrics!.revisions).toBe(0); // fallback: not in hotspots
+    expect(volatileMetrics!.churn).toBe(2500); // present in churn
+    expect(volatileMetrics!.fractalValue).toBe(1); // fallback: single owner
+    expect(volatileMetrics!.mainDev).toBe('unknown'); // fallback
+  });
 });
