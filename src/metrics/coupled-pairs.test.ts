@@ -32,7 +32,7 @@ describe('computeCoupledPairs', () => {
     expect(result.length).toBe(1);
     expect(result[0]!.coChanges).toBe(3);
     expect(result[0]!.couplingPercent).toBe(100);
-    expect([result[0]!.fileA, result[0]!.fileB].toSorted()).toEqual(['api.ts', 'db.ts']);
+    expect([result[0]!.file1, result[0]!.file2].toSorted()).toEqual(['api.ts', 'db.ts']);
   });
 
   it('should filter by minCoChanges', () => {
@@ -89,34 +89,34 @@ describe('computeCoupledPairs', () => {
 
     expect(result.length).toBe(2);
     // a-b should come first (higher score due to more co-changes)
-    expect(result[0]!.fileA).toBe('a.ts');
-    expect(result[0]!.fileB).toBe('b.ts');
-    expect(result[1]!.fileA).toBe('c.ts');
-    expect(result[1]!.fileB).toBe('d.ts');
+    expect(result[0]!.file1).toBe('a.ts');
+    expect(result[0]!.file2).toBe('b.ts');
+    expect(result[1]!.file1).toBe('c.ts');
+    expect(result[1]!.file2).toBe('d.ts');
   });
 });
 
 describe('createCoupledPair', () => {
-  it('creates pair with canonical ordering (fileA < fileB)', () => {
+  it('creates pair with canonical ordering (file1 < file2)', () => {
     const pair = createCoupledPair('z.ts', 'a.ts', 80, 5, true, true);
 
     expect(pair).toEqual({
-      fileA: 'a.ts',
-      fileB: 'z.ts',
+      file1: 'a.ts',
+      file2: 'z.ts',
       couplingPercent: 80,
       coChanges: 5,
-      fileAExists: true,
-      fileBExists: true,
+      file1Exists: true,
+      file2Exists: true,
     });
   });
 
   it('preserves order when already canonical', () => {
     const pair = createCoupledPair('a.ts', 'z.ts', 80, 5, true, false);
 
-    expect(pair.fileA).toBe('a.ts');
-    expect(pair.fileB).toBe('z.ts');
-    expect(pair.fileAExists).toBe(true);
-    expect(pair.fileBExists).toBe(false);
+    expect(pair.file1).toBe('a.ts');
+    expect(pair.file2).toBe('z.ts');
+    expect(pair.file1Exists).toBe(true);
+    expect(pair.file2Exists).toBe(false);
   });
 
   it('throws for negative coChanges', () => {

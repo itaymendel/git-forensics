@@ -29,7 +29,7 @@ export function generateChurnInsight(
     fragments: {
       title: 'High Churn',
       finding: `${formatNumber(totalChurn)} lines changed (+${formatNumber(added)} / -${formatNumber(deleted)})`,
-      risk: 'High churn indicates instability or scope creep',
+      risk: 'Frequent rewrites suggest unclear requirements or architectural friction',
       suggestion: 'Consider refactoring to stabilize this file',
     },
   };

@@ -25,7 +25,7 @@ export const DEFAULT_THRESHOLDS: InsightThresholds = {
     warning: 1000,
     critical: 3000,
   },
-  soc: {
+  couplingScore: {
     warning: 5,
     critical: 10,
   },
@@ -40,6 +40,6 @@ export function mergeThresholds(partial?: Partial<InsightThresholds>): InsightTh
     ownershipRisk: { ...DEFAULT_THRESHOLDS.ownershipRisk, ...partial.ownershipRisk },
     staleCode: { ...DEFAULT_THRESHOLDS.staleCode, ...partial.staleCode },
     churn: { ...DEFAULT_THRESHOLDS.churn, ...partial.churn },
-    soc: { ...DEFAULT_THRESHOLDS.soc, ...partial.soc },
+    couplingScore: { ...DEFAULT_THRESHOLDS.couplingScore, ...partial.couplingScore },
   };
 }

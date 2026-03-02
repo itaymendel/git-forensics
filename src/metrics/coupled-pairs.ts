@@ -1,5 +1,5 @@
 import type { CoupledPair } from '../types.js';
-import type { AggregatedStats, CommitEntry, FileStats } from '../preprocessing/aggregate.js';
+import type { AggregatedStats, FileStats } from '../preprocessing/aggregate.js';
 import { withTopN } from '../utils.js';
 
 export function createCoupledPair(
@@ -20,17 +20,17 @@ export function createCoupledPair(
     throw new Error(`couplingPercent must be 0-100, got ${couplingPercent}`);
   }
 
-  const [fileA, fileB] = file1 < file2 ? [file1, file2] : [file2, file1];
-  const [fileAExists, fileBExists] =
+  const [sorted1, sorted2] = file1 < file2 ? [file1, file2] : [file2, file1];
+  const [sorted1Exists, sorted2Exists] =
     file1 < file2 ? [file1Exists, file2Exists] : [file2Exists, file1Exists];
 
   return {
-    fileA,
-    fileB,
+    file1: sorted1,
+    file2: sorted2,
     couplingPercent,
     coChanges,
-    fileAExists,
-    fileBExists,
+    file1Exists: sorted1Exists,
+    file2Exists: sorted2Exists,
   };
 }
 
@@ -43,46 +43,12 @@ export interface CoupledPairsOptions {
   topN?: number;
 }
 
-function countRevisions(byAuthor: ReadonlyMap<string, readonly CommitEntry[]>): number {
-  let count = 0;
-  for (const commits of byAuthor.values()) {
-    count += commits.length;
-  }
-  return count;
-}
-
-function parsePairKey(
-  key: string,
-  coChanges: number,
-  fileStats: ReadonlyMap<string, FileStats>
-): CoupledPair {
-  const [file1, file2] = key.split('::');
-  if (!file1 || !file2) {
-    throw new Error(`Internal error: malformed pair key "${key}"`);
-  }
-
-  const stats1 = fileStats.get(file1);
-  const stats2 = fileStats.get(file2);
-
-  const appearancesA = stats1 ? countRevisions(stats1.byAuthor) : 0;
-  const appearancesB = stats2 ? countRevisions(stats2.byAuthor) : 0;
-  const avgAppearances = (appearancesA + appearancesB) / 2;
-
-  const rawPercent = avgAppearances > 0 ? Math.round((coChanges / avgAppearances) * 100) : 0;
-  const couplingPercent = Math.min(100, Math.max(0, rawPercent));
-
-  const file1Exists = stats1?.exists ?? false;
-  const file2Exists = stats2?.exists ?? false;
-
-  return createCoupledPair(file1, file2, couplingPercent, coChanges, file1Exists, file2Exists);
-}
-
 function sortByStrength(pairs: CoupledPair[]): CoupledPair[] {
   return pairs.toSorted((a, b) => {
     const scoreA = a.couplingPercent * Math.log(a.coChanges + 1);
     const scoreB = b.couplingPercent * Math.log(b.coChanges + 1);
     if (scoreB !== scoreA) return scoreB - scoreA;
-    return a.fileA.localeCompare(b.fileA) || a.fileB.localeCompare(b.fileB);
+    return a.file1.localeCompare(b.file1) || a.file2.localeCompare(b.file2);
   });
 }
 
@@ -92,16 +58,38 @@ export function computeCoupledPairs(
   options: CoupledPairsOptions = {}
 ): CoupledPair[] {
   const { minCoChanges = 3, minCouplingPercent = 30, topN } = options;
+  const fileStats = stats.fileStats;
 
   const pairs: CoupledPair[] = [];
 
-  for (const [key, coChanges] of stats.pairCoChanges) {
+  for (const [key, coChanges] of Object.entries(stats.pairCoChanges)) {
     if (coChanges < minCoChanges) continue;
 
-    const pair = parsePairKey(key, coChanges, stats.fileStats);
-    if (pair.couplingPercent >= minCouplingPercent) {
-      pairs.push(pair);
-    }
+    // Inline key parsing: use indexOf+slice instead of split to avoid array allocation
+    const sep = key.indexOf('::');
+    const file1 = key.slice(0, sep);
+    const file2 = key.slice(sep + 2);
+
+    // Compute coupling % inline — skip early before allocating CoupledPair object
+    const stats1 = fileStats[file1] as FileStats | undefined;
+    const stats2 = fileStats[file2] as FileStats | undefined;
+    const appearancesA = stats1?.totalRevisions ?? 0;
+    const appearancesB = stats2?.totalRevisions ?? 0;
+    const avgAppearances = (appearancesA + appearancesB) / 2;
+    const rawPercent = avgAppearances > 0 ? Math.round((coChanges / avgAppearances) * 100) : 0;
+    const couplingPercent = Math.min(100, Math.max(0, rawPercent));
+
+    if (couplingPercent < minCouplingPercent) continue;
+
+    // Keys are already sorted (file1 < file2) from aggregation, so no re-sort needed
+    pairs.push({
+      file1,
+      file2,
+      couplingPercent,
+      coChanges,
+      file1Exists: stats1?.exists ?? false,
+      file2Exists: stats2?.exists ?? false,
+    });
   }
 
   return withTopN(sortByStrength(pairs), topN);

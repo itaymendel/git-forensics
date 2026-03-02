@@ -25,7 +25,7 @@ export function computeRevisions(
 
   const results: FileRevisions[] = [];
 
-  for (const [file, fileStats] of stats.fileStats) {
+  for (const [file, fileStats] of Object.entries(stats.fileStats)) {
     if (fileStats.totalRevisions >= minRevisions) {
       const fileComplexity = complexity?.get(file);
       const score =

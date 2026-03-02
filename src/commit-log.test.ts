@@ -64,6 +64,39 @@ describe('parseRename', () => {
     expect(parseRename('src/{old => new}/file.ts')).toEqual(['src/old/file.ts', 'src/new/file.ts']);
     expect(parseRename('src/{old => new}.ts')).toEqual(['src/old.ts', 'src/new.ts']);
   });
+
+  it('should return null for empty string', () => {
+    expect(parseRename('')).toBeNull();
+  });
+
+  it('should return null for arrow-only string', () => {
+    expect(parseRename('=>')).toBeNull();
+  });
+
+  it('should return null for missing right side in simple notation', () => {
+    // (.+) requires at least one char on right side
+    expect(parseRename('old.ts => ')).toBeNull();
+  });
+
+  it('should return null for missing left side in simple notation', () => {
+    // " => new.ts" can't match: no room for (.+) then literal " => "
+    expect(parseRename(' => new.ts')).toBeNull();
+  });
+
+  it('should handle brace notation with no prefix or suffix', () => {
+    expect(parseRename('{old => new}')).toEqual(['old', 'new']);
+  });
+
+  it('should handle whitespace in file names with simple notation', () => {
+    expect(parseRename('old name.ts => new name.ts')).toEqual(['old name.ts', 'new name.ts']);
+  });
+
+  it('should parse first arrow when multiple arrows present', () => {
+    // "a => b => c" — simple regex matches first (.+) greedily, so:
+    // simpleMatch[1] = "a => b", simpleMatch[2] = "c"
+    const result = parseRename('a => b => c');
+    expect(result).toEqual(['a => b', 'c']);
+  });
 });
 
 describe('getChangedFiles', () => {

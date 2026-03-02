@@ -21,7 +21,7 @@ export function generateHotspotInsight(
     fragments: {
       title: 'Hotspot',
       finding: `${revisions} revisions, ranked #${rank} in repository`,
-      risk: 'Frequently changed files correlate with higher defect rates',
+      risk: 'Top-ranked churn file — prioritize for refactoring or test hardening',
       suggestion: 'Consider breaking into smaller modules or adding test coverage',
     },
   };

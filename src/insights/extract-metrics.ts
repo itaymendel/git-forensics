@@ -5,22 +5,21 @@ import { getOrCreate } from '../utils.js';
 type CouplingEntry = { file: string; percent: number };
 
 /** Build bidirectional coupling lookup from paired files. */
-export function buildCouplingMap(pairs: readonly CoupledPair[]): Map<string, CouplingEntry[]> {
+function buildCouplingMap(pairs: readonly CoupledPair[]): Map<string, CouplingEntry[]> {
   const map = new Map<string, CouplingEntry[]>();
   for (const pair of pairs) {
-    getOrCreate(map, pair.fileA, () => []).push({
-      file: pair.fileB,
+    getOrCreate(map, pair.file1, () => []).push({
+      file: pair.file2,
       percent: pair.couplingPercent,
     });
-    getOrCreate(map, pair.fileB, () => []).push({
-      file: pair.fileA,
+    getOrCreate(map, pair.file2, () => []).push({
+      file: pair.file1,
       percent: pair.couplingPercent,
     });
   }
   return map;
 }
 
-/** Build a single file's metrics from lookup maps. */
 function buildFileMetric(
   file: string,
   hotspotMap: Map<string, Forensics['hotspots'][number]>,
@@ -62,7 +61,14 @@ export function extractFileMetrics(forensics: Forensics): FileMetrics[] {
   const churnMap = new Map(forensics.churn.map((c) => [c.file, c] as const));
   const couplingMap = buildCouplingMap(forensics.coupledPairs);
 
-  return [...ownershipMap.keys()].map((file) =>
+  const allFiles = new Set([
+    ...hotspotMap.keys(),
+    ...ageMap.keys(),
+    ...ownershipMap.keys(),
+    ...churnMap.keys(),
+  ]);
+
+  return [...allFiles].map((file) =>
     buildFileMetric(file, hotspotMap, ageMap, ownershipMap, churnMap, couplingMap)
   );
 }

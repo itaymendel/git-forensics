@@ -191,7 +191,7 @@ describe('computeForensics', () => {
 
     expect(result.dateRange.from).toBe('2024-01-10T10:00:00Z');
     expect(result.dateRange.to).toBe('2024-06-15T10:00:00Z');
-    expect(result.metadata.maxCommitsRequested).toBe(100);
+    expect(result.metadata.maxCommitsAnalyzed).toBe(100);
     expect(result.metadata.topN).toBe(25);
     expect(result.metadata.totalFilesAnalyzed).toBe(2);
     expect(result.metadata.totalAuthors).toBe(2);

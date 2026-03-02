@@ -20,16 +20,16 @@ describe('aggregateCommits', () => {
 
     const stats = aggregateCommits(commits);
 
-    expect(stats.fileStats.size).toBe(2);
+    expect(Object.keys(stats.fileStats)).toHaveLength(2);
 
-    const indexStats = stats.fileStats.get('src/index.ts');
-    expect(indexStats!.byAuthor.size).toBe(2);
-    expect(indexStats!.byAuthor.get('alice')).toHaveLength(2);
-    expect(indexStats!.byAuthor.get('bob')).toHaveLength(1);
+    const indexStats = stats.fileStats['src/index.ts'];
+    expect(Object.keys(indexStats!.byAuthor)).toHaveLength(2);
+    expect(indexStats!.byAuthor['alice']).toHaveLength(2);
+    expect(indexStats!.byAuthor['bob']).toHaveLength(1);
 
-    const utilsStats = stats.fileStats.get('src/utils.ts');
-    expect(utilsStats!.byAuthor.size).toBe(1);
-    expect(utilsStats!.byAuthor.get('alice')).toHaveLength(1);
+    const utilsStats = stats.fileStats['src/utils.ts'];
+    expect(Object.keys(utilsStats!.byAuthor)).toHaveLength(1);
+    expect(utilsStats!.byAuthor['alice']).toHaveLength(1);
   });
 
   it('should compute SOC score for multi-file commits', () => {
@@ -38,30 +38,30 @@ describe('aggregateCommits', () => {
     const stats = aggregateCommits(commits);
 
     // Each file gets SOC = (3 - 1) = 2
-    expect(stats.fileStats.get('a.ts')!.socScore).toBe(2);
-    expect(stats.fileStats.get('b.ts')!.socScore).toBe(2);
-    expect(stats.fileStats.get('c.ts')!.socScore).toBe(2);
+    expect(stats.fileStats['a.ts']!.couplingScore).toBe(2);
+    expect(stats.fileStats['b.ts']!.couplingScore).toBe(2);
+    expect(stats.fileStats['c.ts']!.couplingScore).toBe(2);
   });
 
   it('should skip SOC for single-file commits', () => {
     const commits = [commit({ files: [file('solo.ts')] })];
 
     const stats = aggregateCommits(commits);
-    expect(stats.fileStats.get('solo.ts')!.socScore).toBe(0);
+    expect(stats.fileStats['solo.ts']!.couplingScore).toBe(0);
   });
 
   it('should skip SOC for commits exceeding maxFilesPerCommit', () => {
     const commits = [commit({ files: [file('a.ts'), file('b.ts'), file('c.ts')] })];
 
     const stats = aggregateCommits(commits, { maxFilesPerCommit: 2 });
-    expect(stats.fileStats.get('a.ts')!.socScore).toBe(0);
+    expect(stats.fileStats['a.ts']!.couplingScore).toBe(0);
   });
 
   it('should count pair co-changes', () => {
     const commits = commitsBy('dev', [file('a.ts'), file('b.ts')], 2);
 
     const stats = aggregateCommits(commits);
-    expect(stats.pairCoChanges.get('a.ts::b.ts')).toBe(2);
+    expect(stats.pairCoChanges['a.ts::b.ts']).toBe(2);
   });
 
   it('should store commit entry data correctly', () => {
@@ -74,7 +74,7 @@ describe('aggregateCommits', () => {
 
     const stats = aggregateCommits(commits);
 
-    const entries = stats.fileStats.get('test.ts')!.byAuthor.get('dev')!;
+    const entries = stats.fileStats['test.ts']!.byAuthor['dev']!;
     expect(entries).toHaveLength(1);
     expect(entries[0]!.date).toBe('2024-01-15T10:30:00Z');
     expect(entries[0]!.timestamp).toBe(new Date('2024-01-15T10:30:00Z').getTime());
@@ -85,8 +85,8 @@ describe('aggregateCommits', () => {
   it('should return empty stats for empty commits', () => {
     const stats = aggregateCommits([]);
 
-    expect(stats.fileStats.size).toBe(0);
-    expect(stats.pairCoChanges.size).toBe(0);
+    expect(Object.keys(stats.fileStats)).toHaveLength(0);
+    expect(Object.keys(stats.pairCoChanges)).toHaveLength(0);
   });
 
   it('should track author contributions with additions, deletions, and revisions', () => {
@@ -97,17 +97,62 @@ describe('aggregateCommits', () => {
     ];
 
     const stats = aggregateCommits(commits);
-    const indexStats = stats.fileStats.get('src/index.ts');
+    const indexStats = stats.fileStats['src/index.ts'];
 
-    expect(indexStats!.authorContributions.get('alice')).toEqual({
+    expect(indexStats!.authorContributions['alice']).toEqual({
       additions: 11,
       deletions: 3,
       revisions: 2,
     });
-    expect(indexStats!.authorContributions.get('bob')).toEqual({
+    expect(indexStats!.authorContributions['bob']).toEqual({
       additions: 5,
       deletions: 3,
       revisions: 1,
+    });
+  });
+
+  describe('NaN date handling', () => {
+    it('should skip commits with invalid dates', () => {
+      const commits = [
+        commit({
+          date: 'not-a-date',
+          files: [file('skipped.ts', { additions: 100 })],
+        }),
+        commit({
+          date: '2024-06-15T10:00:00Z',
+          files: [file('valid.ts', { additions: 5 })],
+        }),
+      ];
+
+      const stats = aggregateCommits(commits);
+
+      expect(Object.keys(stats.fileStats)).toHaveLength(1);
+      expect('valid.ts' in stats.fileStats).toBe(true);
+      expect('skipped.ts' in stats.fileStats).toBe(false);
+    });
+
+    it('should skip commits with empty date strings', () => {
+      const commits = [
+        commit({ date: '', files: [file('empty-date.ts')] }),
+        commit({ date: '2024-01-15T10:00:00Z', files: [file('ok.ts')] }),
+      ];
+
+      const stats = aggregateCommits(commits);
+
+      expect(Object.keys(stats.fileStats)).toHaveLength(1);
+      expect('ok.ts' in stats.fileStats).toBe(true);
+    });
+
+    it('should return empty stats when all commits have invalid dates', () => {
+      const commits = [
+        commit({ date: 'garbage', files: [file('a.ts')] }),
+        commit({ date: 'also-garbage', files: [file('b.ts')] }),
+      ];
+
+      const stats = aggregateCommits(commits);
+
+      expect(Object.keys(stats.fileStats)).toHaveLength(0);
+      expect(Object.keys(stats.pairCoChanges)).toHaveLength(0);
     });
   });
 
@@ -117,11 +162,11 @@ describe('aggregateCommits', () => {
 
       const stats = aggregateCommits(commits);
 
-      expect(stats.fileStats.size).toBe(1);
-      expect(stats.fileStats.has('new.ts')).toBe(true);
-      expect(stats.fileStats.has('old.ts')).toBe(false);
+      expect(Object.keys(stats.fileStats)).toHaveLength(1);
+      expect('new.ts' in stats.fileStats).toBe(true);
+      expect('old.ts' in stats.fileStats).toBe(false);
 
-      const fileStats = stats.fileStats.get('new.ts')!;
+      const fileStats = stats.fileStats['new.ts']!;
       expect(fileStats.nameHistory).toEqual(['old.ts']);
       expect(fileStats.totalRevisions).toBe(2);
     });
@@ -131,10 +176,10 @@ describe('aggregateCommits', () => {
 
       const stats = aggregateCommits(commits);
 
-      expect(stats.fileStats.size).toBe(1);
-      expect(stats.fileStats.has('c.ts')).toBe(true);
+      expect(Object.keys(stats.fileStats)).toHaveLength(1);
+      expect('c.ts' in stats.fileStats).toBe(true);
 
-      const fileStats = stats.fileStats.get('c.ts')!;
+      const fileStats = stats.fileStats['c.ts']!;
       expect(fileStats.nameHistory).toEqual(['a.ts', 'b.ts']);
       expect(fileStats.totalRevisions).toBe(3);
     });
@@ -144,7 +189,7 @@ describe('aggregateCommits', () => {
 
       const stats = aggregateCommits(commits);
 
-      const fileStats = stats.fileStats.get('stable.ts')!;
+      const fileStats = stats.fileStats['stable.ts']!;
       expect(fileStats.nameHistory).toEqual([]);
     });
 
@@ -161,8 +206,8 @@ describe('aggregateCommits', () => {
 
       const stats = aggregateCommits(commits);
 
-      expect(stats.pairCoChanges.get('other.ts::renamed.ts')).toBe(2);
-      expect(stats.pairCoChanges.has('old.ts::other.ts')).toBe(false);
+      expect(stats.pairCoChanges['other.ts::renamed.ts']).toBe(2);
+      expect('old.ts::other.ts' in stats.pairCoChanges).toBe(false);
     });
   });
 });

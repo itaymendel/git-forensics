@@ -9,8 +9,7 @@
   },
   "rules": {
     // === Complexity Plugin ===
-    "complexity/max-cyclomatic": ["error", { "max": 20 }],
-    "complexity/max-cognitive": ["error", { "max": 15 }],
+    "complexity/complexity": ["error", { "cyclomatic": 20, "cognitive": 15 }],
 
     // === Code Quality (Correctness) ===
     "no-console": "warn",
@@ -82,5 +81,5 @@
       }
     }
   ],
-  "ignorePatterns": ["dist", "node_modules", "*.min.js", "coverage", "scripts"]
+  "ignorePatterns": ["dist", "node_modules", "*.min.js", "coverage", "scripts", "benchmarks"]
 }

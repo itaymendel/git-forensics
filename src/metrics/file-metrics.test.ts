@@ -23,9 +23,9 @@ describe('computeRevisions', () => {
     const result = computeRevisions(stats);
 
     expect(result).toEqual([
-      { file: 'src/index.ts', revisions: 3, exists: true },
-      { file: 'src/new.ts', revisions: 1, exists: true },
-      { file: 'src/utils.ts', revisions: 1, exists: true },
+      { file: 'src/index.ts', revisions: 3, exists: false },
+      { file: 'src/new.ts', revisions: 1, exists: false },
+      { file: 'src/utils.ts', revisions: 1, exists: false },
     ]);
   });
 

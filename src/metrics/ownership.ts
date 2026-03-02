@@ -7,61 +7,65 @@ export interface OwnershipOptions {
   topN?: number;
 }
 
-function computeFractal(contributions: ReadonlyMap<string, AuthorContribution>): number {
-  let totalAdditions = 0;
-  for (const contrib of contributions.values()) {
-    totalAdditions += contrib.additions;
-  }
-
-  if (totalAdditions === 0) return 1; // No additions = treat as single owner
-
-  let fractal = 0;
-  for (const contrib of contributions.values()) {
-    const ratio = contrib.additions / totalAdditions;
-    fractal += ratio * ratio;
-  }
-
-  return Math.round(fractal * 100) / 100;
-}
-
-function findMainDevByAdditions(contributions: ReadonlyMap<string, AuthorContribution>): {
+/**
+ * Single-pass computation of fractal value, main dev, and refactoring dev.
+ * Replaces three separate Object.entries() iterations with one.
+ */
+function computeOwnershipStats(
+  contributions: Readonly<Record<string, AuthorContribution>>,
+  totalAdditions: number,
+  totalDeletions: number
+): {
+  fractalValue: number;
   mainDev: string;
-  maxAdditions: number;
-  totalAdditions: number;
+  ownershipPercent: number;
+  refactoringDev: string;
+  refactoringOwnership: number;
+  authorCount: number;
 } {
+  let fractal = 0;
   let mainDev = '';
   let maxAdditions = 0;
-  let totalAdditions = 0;
+  let refactoringDev = '';
+  let maxDeletions = 0;
+  let authorCount = 0;
 
-  for (const [author, contrib] of contributions) {
-    totalAdditions += contrib.additions;
+  for (const [author, contrib] of Object.entries(contributions)) {
+    authorCount++;
+
+    // Fractal calculation
+    if (totalAdditions > 0) {
+      const ratio = contrib.additions / totalAdditions;
+      fractal += ratio * ratio;
+    }
+
+    // Main dev (most additions)
     if (contrib.additions > maxAdditions) {
       maxAdditions = contrib.additions;
       mainDev = author;
     }
-  }
 
-  return { mainDev, maxAdditions, totalAdditions };
-}
-
-function findRefactoringDev(contributions: ReadonlyMap<string, AuthorContribution>): {
-  refactoringDev: string;
-  maxDeletions: number;
-  totalDeletions: number;
-} {
-  let refactoringDev = '';
-  let maxDeletions = 0;
-  let totalDeletions = 0;
-
-  for (const [author, contrib] of contributions) {
-    totalDeletions += contrib.deletions;
+    // Refactoring dev (most deletions)
     if (contrib.deletions > maxDeletions) {
       maxDeletions = contrib.deletions;
       refactoringDev = author;
     }
   }
 
-  return { refactoringDev, maxDeletions, totalDeletions };
+  const fractalValue = totalAdditions === 0 ? 1 : Math.round(fractal * 100) / 100;
+  const ownershipPercent =
+    totalAdditions > 0 ? Math.round((maxAdditions / totalAdditions) * 100) : 0;
+  const refactoringOwnership =
+    totalDeletions > 0 ? Math.round((maxDeletions / totalDeletions) * 100) : 0;
+
+  return {
+    fractalValue,
+    mainDev,
+    ownershipPercent,
+    refactoringDev,
+    refactoringOwnership,
+    authorCount,
+  };
 }
 
 export function computeOwnership(
@@ -72,27 +76,24 @@ export function computeOwnership(
 
   const results: FileOwnership[] = [];
 
-  for (const [file, fileStats] of stats.fileStats) {
+  for (const [file, fileStats] of Object.entries(stats.fileStats)) {
     const contributions = fileStats.authorContributions;
-    if (contributions.size === 0) continue;
+    if (Object.keys(contributions).length === 0) continue;
 
-    const { mainDev, maxAdditions, totalAdditions } = findMainDevByAdditions(contributions);
-    const { refactoringDev, maxDeletions, totalDeletions } = findRefactoringDev(contributions);
-
-    const ownershipPercent =
-      totalAdditions > 0 ? Math.round((maxAdditions / totalAdditions) * 100) : 0;
-
-    const refactoringOwnership =
-      totalDeletions > 0 ? Math.round((maxDeletions / totalDeletions) * 100) : 0;
+    const ownership = computeOwnershipStats(
+      contributions,
+      fileStats.totalAdditions,
+      fileStats.totalDeletions
+    );
 
     results.push({
       file,
-      mainDev,
-      ownershipPercent,
-      refactoringDev,
-      refactoringOwnership,
-      fractalValue: computeFractal(contributions),
-      authorCount: contributions.size,
+      mainDev: ownership.mainDev,
+      ownershipPercent: ownership.ownershipPercent,
+      refactoringDev: ownership.refactoringDev,
+      refactoringOwnership: ownership.refactoringOwnership,
+      fractalValue: ownership.fractalValue,
+      authorCount: ownership.authorCount,
       exists: fileStats.exists,
     });
   }

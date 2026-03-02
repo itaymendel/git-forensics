@@ -14,13 +14,12 @@ interface AuthorMaps {
   authorTotals: Map<string, number>;
 }
 
-/** Build maps of author -> files and author -> total revisions. */
 function buildAuthorMaps(stats: AggregatedStats): AuthorMaps {
   const authorToFiles = new Map<string, Set<string>>();
   const authorTotals = new Map<string, number>();
 
-  for (const [file, fileStats] of stats.fileStats) {
-    for (const [author, contrib] of fileStats.authorContributions) {
+  for (const [file, fileStats] of Object.entries(stats.fileStats)) {
+    for (const [author, contrib] of Object.entries(fileStats.authorContributions)) {
       getOrCreate(authorToFiles, author, () => new Set()).add(file);
       authorTotals.set(author, (authorTotals.get(author) ?? 0) + contrib.revisions);
     }
@@ -29,7 +28,6 @@ function buildAuthorMaps(stats: AggregatedStats): AuthorMaps {
   return { authorToFiles, authorTotals };
 }
 
-/** Count files shared between two authors. */
 function countSharedFiles(files1: Set<string>, files2: Set<string>): number {
   let count = 0;
   for (const file of files1) {
@@ -38,13 +36,11 @@ function countSharedFiles(files1: Set<string>, files2: Set<string>): number {
   return count;
 }
 
-/** Compute communication strength between two authors. */
 function computeStrength(sharedEntities: number, revisions1: number, revisions2: number): number {
   const avgRevisions = (revisions1 + revisions2) / 2;
   return avgRevisions > 0 ? Math.round((sharedEntities / avgRevisions) * 100) : 0;
 }
 
-/** Create a communication pair if authors share enough files. */
 function createPairIfSignificant(
   author1: string,
   author2: string,
@@ -78,11 +74,9 @@ export function computeCommunication(
   const pairs: CommunicationPair[] = [];
 
   for (let i = 0; i < authors.length; i++) {
-    const author1 = authors[i];
-    if (!author1) continue;
+    const author1 = authors[i] as string;
     for (let j = i + 1; j < authors.length; j++) {
-      const author2 = authors[j];
-      if (!author2) continue;
+      const author2 = authors[j] as string;
       const pair = createPairIfSignificant(author1, author2, maps, minSharedEntities);
       if (pair) pairs.push(pair);
     }
