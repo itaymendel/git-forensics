@@ -43,6 +43,183 @@ forensics.ownership; // Knowledge silos
 forensics.communication; // Developer coordination needs
 ```
 
+## Example Output
+
+Running `computeForensics` on a repository returns structured data across all metrics:
+
+```jsonc
+{
+  "analyzedCommits": 842,
+  "dateRange": { "from": "2024-03-10", "to": "2025-01-15" },
+  "metadata": {
+    "maxCommitsAnalyzed": 1000,
+    "topN": 50,
+    "totalFilesAnalyzed": 134,
+    "totalAuthors": 12,
+    "analyzedAt": "2025-01-20T14:32:00Z",
+  },
+
+  // Files changed most often — where bugs likely hide
+  "hotspots": [
+    { "file": "src/api/routes.ts", "revisions": 87, "exists": true },
+    { "file": "src/core/engine.ts", "revisions": 64, "exists": true },
+    { "file": "src/utils/helpers.ts", "revisions": 41, "exists": true },
+  ],
+
+  // Files that always change together — hidden dependencies
+  "coupledPairs": [
+    {
+      "file1": "src/api/routes.ts",
+      "file2": "src/api/middleware.ts",
+      "couplingPercent": 82,
+      "coChanges": 34,
+      "file1Exists": true,
+      "file2Exists": true,
+    },
+    {
+      "file1": "src/db/schema.ts",
+      "file2": "src/db/migrations.ts",
+      "couplingPercent": 91,
+      "coChanges": 22,
+      "file1Exists": true,
+      "file2Exists": true,
+    },
+  ],
+
+  // Architectural hubs — files coupled to many others
+  "couplingRankings": [
+    { "file": "src/api/routes.ts", "couplingScore": 8, "exists": true },
+    { "file": "src/core/engine.ts", "couplingScore": 5, "exists": true },
+  ],
+
+  // Stale code — unchanged for a long time
+  "codeAge": [
+    {
+      "file": "src/legacy/parser.ts",
+      "ageMonths": 14,
+      "lastModified": "2023-11-02",
+      "exists": true,
+    },
+    {
+      "file": "src/utils/constants.ts",
+      "ageMonths": 9,
+      "lastModified": "2024-04-15",
+      "exists": true,
+    },
+  ],
+
+  // Knowledge silos — who owns what
+  "ownership": [
+    {
+      "file": "src/core/engine.ts",
+      "mainDev": "alice",
+      "ownershipPercent": 34,
+      "refactoringDev": "bob",
+      "refactoringOwnership": 28,
+      "fractalValue": 0.18,
+      "authorCount": 7,
+      "exists": true,
+    },
+    {
+      "file": "src/api/routes.ts",
+      "mainDev": "carol",
+      "ownershipPercent": 62,
+      "refactoringDev": "carol",
+      "refactoringOwnership": 55,
+      "fractalValue": 0.52,
+      "authorCount": 4,
+      "exists": true,
+    },
+  ],
+
+  // Code volatility — lines added and deleted
+  "churn": [
+    {
+      "file": "src/core/engine.ts",
+      "added": 3200,
+      "deleted": 1800,
+      "churn": 5000,
+      "revisions": 64,
+      "exists": true,
+    },
+    {
+      "file": "src/api/routes.ts",
+      "added": 1400,
+      "deleted": 600,
+      "churn": 2000,
+      "revisions": 87,
+      "exists": true,
+    },
+  ],
+
+  // Developer coordination needs (Conway's Law)
+  "communication": [
+    { "author1": "alice", "author2": "bob", "sharedEntities": 12, "strength": 67 },
+    { "author1": "carol", "author2": "alice", "sharedEntities": 8, "strength": 45 },
+  ],
+}
+```
+
+Passing the result to `generateInsights` produces actionable alerts:
+
+```jsonc
+[
+  {
+    "file": "src/core/engine.ts",
+    "type": "hotspot",
+    "severity": "critical",
+    "data": { "type": "hotspot", "revisions": 64, "rank": 2 },
+    "fragments": {
+      "title": "Hotspot",
+      "finding": "64 revisions, ranked #2 in repository",
+      "risk": "Top-ranked churn file — prioritize for refactoring or test hardening",
+      "suggestion": "Consider breaking into smaller modules or adding test coverage",
+    },
+  },
+  {
+    "file": "src/core/engine.ts",
+    "type": "high-churn",
+    "severity": "critical",
+    "data": { "type": "high-churn", "churn": 5000, "added": 3200, "deleted": 1800 },
+    "fragments": {
+      "title": "High Churn",
+      "finding": "5,000 lines changed (+3,200 / -1,800)",
+      "risk": "Frequent rewrites suggest unclear requirements or architectural friction",
+      "suggestion": "Consider refactoring to stabilize this file",
+    },
+  },
+  {
+    "file": "src/core/engine.ts",
+    "type": "ownership-risk",
+    "severity": "critical",
+    "data": {
+      "type": "ownership-risk",
+      "fractalValue": 0.18,
+      "authorCount": 7,
+      "mainDev": "alice",
+    },
+    "fragments": {
+      "title": "Fragmented Ownership",
+      "finding": "7 contributors, fragmentation score 0.18",
+      "risk": "Diffuse ownership slows review cycles and increases merge conflicts",
+      "suggestion": "Request review from alice (primary contributor)",
+    },
+  },
+  {
+    "file": "src/legacy/parser.ts",
+    "type": "stale-code",
+    "severity": "info",
+    "data": { "type": "stale-code", "ageMonths": 14, "lastModified": "2023-11-02" },
+    "fragments": {
+      "title": "Stale Code",
+      "finding": "Unchanged for 14 months (since Nov 2023)",
+      "risk": "Untouched code drifts from current conventions and loses institutional knowledge",
+      "suggestion": "Extra review recommended; verify tests still cover this code",
+    },
+  },
+]
+```
+
 ## Actionable Insights
 
 Raw metrics are useful, but `generateInsights` transforms them into actionable alerts with human-readable messages:
