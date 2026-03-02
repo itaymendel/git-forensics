@@ -81,5 +81,5 @@
       }
     }
   ],
-  "ignorePatterns": ["dist", "node_modules", "*.min.js", "coverage", "scripts"]
+  "ignorePatterns": ["dist", "node_modules", "*.min.js", "coverage", "scripts", "benchmarks"]
 }
