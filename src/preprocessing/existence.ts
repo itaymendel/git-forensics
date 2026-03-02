@@ -13,7 +13,14 @@ export function enrichWithExistenceFromSet(
 
   for (const [file, fileStats] of Object.entries(stats.fileStats)) {
     enrichedFileStats[file] = {
-      ...fileStats,
+      byAuthor: fileStats.byAuthor,
+      couplingScore: fileStats.couplingScore,
+      totalRevisions: fileStats.totalRevisions,
+      latestCommit: fileStats.latestCommit,
+      authorContributions: fileStats.authorContributions,
+      totalAdditions: fileStats.totalAdditions,
+      totalDeletions: fileStats.totalDeletions,
+      nameHistory: fileStats.nameHistory,
       exists: existingFiles.has(file),
     };
   }

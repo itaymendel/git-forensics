@@ -23,21 +23,32 @@ export function computeCommitMetadata(commits: CommitLog[]): CommitMetadata {
   const allFiles = new Set<string>();
   const allAuthors = new Set<string>();
 
+  let minDate = '';
+  let minTs = Infinity;
+  let maxDate = '';
+  let maxTs = -Infinity;
+
   for (const commit of commits) {
     allAuthors.add(commit.author);
     for (const file of commit.files) {
       allFiles.add(file.file);
     }
-  }
 
-  const sortedDates = commits
-    .map((c) => c.date)
-    .toSorted((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    const ts = new Date(commit.date).getTime();
+    if (ts < minTs) {
+      minTs = ts;
+      minDate = commit.date;
+    }
+    if (ts > maxTs) {
+      maxTs = ts;
+      maxDate = commit.date;
+    }
+  }
 
   return {
     dateRange: {
-      from: sortedDates[0] ?? '',
-      to: sortedDates.at(-1) ?? '',
+      from: minDate,
+      to: maxDate,
     },
     totalFilesAnalyzed: allFiles.size,
     totalAuthors: allAuthors.size,
@@ -65,14 +76,17 @@ export interface TransformGitLogOptions {
 export function transformGitLog(log: GitLog, options: TransformGitLogOptions = {}): CommitLog[] {
   const { detectRenames = true } = options;
 
-  return log.all.map((commit) => ({
-    hash: extractCommitHash(commit.hash),
-    date: commit.date,
-    author: commit.author_name,
-    message: commit.message,
-    files: parseFiles(commit.diff?.files, detectRenames),
-    parentCount: countParents(commit.hash),
-  }));
+  return log.all.map((commit) => {
+    const { hash, parentCount } = parseHashAndParents(commit.hash);
+    return {
+      hash,
+      date: commit.date,
+      author: commit.author_name,
+      message: commit.message,
+      files: parseFiles(commit.diff?.files, detectRenames),
+      parentCount,
+    };
+  });
 }
 
 /** Fetch commit history with file-level stats. */
@@ -103,14 +117,12 @@ export async function getCommitLog(
   return transformGitLog(log as unknown as GitLog, { detectRenames });
 }
 
-function extractCommitHash(hashWithParents: string): string {
+function parseHashAndParents(hashWithParents: string): { hash: string; parentCount: number } {
   const parts = hashWithParents.trim().split(/\s+/);
-  return parts[0] ?? hashWithParents;
-}
-
-function countParents(hashWithParents: string): number {
-  const parts = hashWithParents.trim().split(/\s+/);
-  return Math.max(parts.length - 1, 1);
+  return {
+    hash: parts[0] ?? hashWithParents,
+    parentCount: Math.max(parts.length - 1, 1),
+  };
 }
 
 function parseFiles(
@@ -137,6 +149,8 @@ function parseFiles(
 
 /** Parse git rename format: returns [oldName, newName] or null. */
 export function parseRename(fileStr: string): [string, string] | null {
+  if (!fileStr.includes('=>')) return null;
+
   const braceMatch = fileStr.match(/^(.*?)\{([^}]+) => ([^}]+)\}(.*)$/);
   if (braceMatch) {
     const [, prefix = '', oldPart, newPart, suffix = ''] = braceMatch;

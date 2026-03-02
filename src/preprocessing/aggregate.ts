@@ -21,6 +21,10 @@ export interface FileStats {
   readonly latestCommit: { readonly date: string; readonly timestamp: number } | null;
   /** Contribution breakdown per author (additions, deletions, revisions) */
   readonly authorContributions: Readonly<Record<string, AuthorContribution>>;
+  /** Total additions across all authors (pre-computed during aggregation) */
+  readonly totalAdditions: number;
+  /** Total deletions across all authors (pre-computed during aggregation) */
+  readonly totalDeletions: number;
   /**
    * Historical names for this file, ordered oldest → newest.
    * Excludes current name (that's the map key).
@@ -57,6 +61,8 @@ interface MutableFileStats {
   totalRevisions: number;
   latestCommit: { date: string; timestamp: number } | null;
   authorContributions: Map<string, MutableAuthorContribution>;
+  totalAdditions: number;
+  totalDeletions: number;
   nameHistory: string[];
   exists: boolean;
 }
@@ -68,16 +74,28 @@ function createEmptyFileStats(): MutableFileStats {
     totalRevisions: 0,
     latestCommit: null,
     authorContributions: new Map<string, MutableAuthorContribution>(),
+    totalAdditions: 0,
+    totalDeletions: 0,
     nameHistory: [],
     exists: false,
   };
 }
 
 function countPairsInCommit(
-  resolvedFiles: readonly string[],
+  files: readonly FileChange[],
+  currentName: Map<string, string>,
   pairCoChanges: Map<string, number>
 ): void {
-  const uniqueFiles = [...new Set(resolvedFiles)];
+  const seen = new Set<string>();
+  const uniqueFiles: string[] = [];
+
+  for (const f of files) {
+    const resolved = currentName.get(f.file) ?? f.file;
+    if (!seen.has(resolved)) {
+      seen.add(resolved);
+      uniqueFiles.push(resolved);
+    }
+  }
 
   for (let i = 0; i < uniqueFiles.length; i++) {
     const fileA = uniqueFiles[i] as string;
@@ -133,7 +151,7 @@ function processFileChange(
     stats.latestCommit = { date: commit.date, timestamp: commitTimestamp };
   }
 
-  // Update author contributions
+  // Update author contributions and file-level totals
   const contrib = getOrCreate(stats.authorContributions, commit.author, () => ({
     additions: 0,
     deletions: 0,
@@ -142,6 +160,9 @@ function processFileChange(
   contrib.additions += change.additions;
   contrib.deletions += change.deletions;
   contrib.revisions += 1;
+
+  stats.totalAdditions += change.additions;
+  stats.totalDeletions += change.deletions;
 
   if (isMultiFileCommit) {
     stats.couplingScore += fileCount - 1;
@@ -180,8 +201,7 @@ export function aggregateCommits(
     }
 
     if (isMultiFileCommit) {
-      const resolvedFiles = files.map((f) => currentName.get(f.file) ?? f.file);
-      countPairsInCommit(resolvedFiles, pairCoChanges);
+      countPairsInCommit(files, currentName, pairCoChanges);
     }
   }
 
