@@ -5,8 +5,7 @@ A TypeScript library for providing insights from git commit history.
 ## Features
 
 - **Actionable insights**
-- **~700ms for 100,000 commits (getting the git-log will be slow)**
-- **Works with any language**
+- **Fast - ~700ms for 100,000 commits (getting the git-log will be slow)**
 - **Follows file rename and removal**
 - **Optimized for CI**
 - **Integrated (a VERY basic) [code complexity engine](https://github.com/itaymendel/indent-complexity)**
