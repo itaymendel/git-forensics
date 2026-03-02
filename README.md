@@ -5,7 +5,7 @@ A TypeScript library for providing insights from git commit history.
 ## Features
 
 - **Actionable insights**
-- **~750ms for 100,000 commits (in a repository with 10,000 files and 60 developers)**
+- **~700ms for 100,000 commits (getting the git-log will be slow)**
 - **Works with any language**
 - **Follows file rename and removal**
 - **Optimized for CI**
@@ -17,6 +17,8 @@ A TypeScript library for providing insights from git commit history.
 
 Part exploration after dealing with such questions and digging online for good ways to get insights from the "meta" of coding, and part needing such library for some other tools I am looking to build.
 While there are some great tools out there that can look at Git history and provide insights and reports ([git-of-theseus](https://github.com/erikbern/git-of-theseus), [code-maat](https://github.com/adamtornhill/code-maat), [git-fame](https://github.com/casperdcl/git-fame), [git-quick-stats](https://github.com/git-quick-stats/git-quick-stats),[MergeStat](https://github.com/mergestat/mergestat-lite), [Hercules](https://github.com/src-d/hercules), [gitinspector](https://github.com/ejwa/gitinspector)) - they "feel" heavy and not well suited to be backend for any dev-tool.
+
+Lastly, while very enticing, I would not recommend running this on years of commits, but rather focus on more recent history (6-9 months of work). While you could do this for 20 years of code, and given this library does follows renames and such, history will make sense, but most of the data may get polluted given the long history.
 
 ## Installation
 
@@ -127,7 +129,7 @@ for (const insight of insights) {
 
 ### Optimization: Store & Reuse (large codebases)
 
-git-forensics is fast (~500ms for 60k commits), for very large repos you can eliminate git history scans entirely by storing forensics data between runs.
+git-forensics is fast (~700ms for 100k commits), for very large repos you can eliminate git history scans entirely by storing forensics data between runs.
 
 **Step 1: Full analysis (scheduled or first run)**
 
