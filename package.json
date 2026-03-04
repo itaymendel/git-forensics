@@ -56,7 +56,7 @@
     "simple-git": "^3.32.3"
   },
   "devDependencies": {
-    "@types/node": "^22.19.3",
+    "@types/node": "^25.3.3",
     "@types/picomatch": "^4.0.2",
     "husky": "^9.1.7",
     "oxlint": "1.50.0",
