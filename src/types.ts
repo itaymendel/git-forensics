@@ -78,6 +78,21 @@ export interface FileOwnership {
   readonly exists: boolean;
 }
 
+/** Per-author contribution breakdown for a file */
+export interface ContributorBreakdown {
+  readonly author: string;
+  readonly percent: number;
+  readonly revisions: number;
+}
+
+/** Per-file ranked list of contributors */
+export interface FileContributors {
+  readonly file: string;
+  readonly contributors: readonly ContributorBreakdown[];
+  readonly authorCount: number;
+  readonly exists: boolean;
+}
+
 /** Code churn for a file (lines added/deleted) */
 export interface FileChurn {
   readonly file: string;
@@ -135,6 +150,7 @@ export interface ForensicsMetadata {
     readonly ownership: TruncationInfo;
     readonly churn: TruncationInfo;
     readonly communication: TruncationInfo;
+    readonly topContributors: TruncationInfo;
   };
 }
 
@@ -159,6 +175,8 @@ export interface Forensics {
   readonly churn: readonly FileChurn[];
   /** Author pairs needing communication based on shared code (Conway's Law) */
   readonly communication: readonly CommunicationPair[];
+  /** Per-file ranked list of contributors sorted by author count desc */
+  readonly topContributors: readonly FileContributors[];
   /**
    * Raw aggregated statistics for building custom metrics.
    * Contains full temporal history: every commit, by every author, for every file.
@@ -220,6 +238,14 @@ export interface BaseForensicsOptions {
   skipMergeCommits?: boolean;
   /** Whether to follow file renames (default: true) */
   followRenames?: boolean;
+  /** Skip commits with more than this many files for coupling analysis (default: 50) */
+  maxFilesPerCommit?: number;
+  /** Minimum co-changes for a file pair to be considered coupled (default: 3) */
+  minCoChanges?: number;
+  /** Minimum coupling percentage to include a file pair (default: 30) */
+  minCouplingPercent?: number;
+  /** Minimum shared files for a developer pair to appear in communication analysis (default: 2) */
+  minSharedEntities?: number;
 }
 
 /** Options for forensics computation */

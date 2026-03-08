@@ -1,4 +1,4 @@
-import type { Forensics, CoupledPair } from '../types.js';
+import type { Forensics, CoupledPair, FileContributors } from '../types.js';
 import type { FileMetrics } from './types.js';
 import { getOrCreate } from '../utils.js';
 
@@ -26,7 +26,8 @@ function buildFileMetric(
   ageMap: Map<string, Forensics['codeAge'][number]>,
   ownershipMap: Map<string, Forensics['ownership'][number]>,
   churnMap: Map<string, Forensics['churn'][number]>,
-  couplingMap: Map<string, CouplingEntry[]>
+  couplingMap: Map<string, CouplingEntry[]>,
+  topContributorsMap: Map<string, FileContributors>
 ): FileMetrics {
   const hotspot = hotspotMap.get(file);
   const age = ageMap.get(file);
@@ -45,6 +46,7 @@ function buildFileMetric(
     mainDev: ownership?.mainDev ?? 'unknown',
     authorCount: ownership?.authorCount ?? 0,
     coupledWith: couplingMap.get(file) ?? [],
+    topContributors: topContributorsMap.get(file)?.contributors ?? [],
   };
 }
 
@@ -60,15 +62,25 @@ export function extractFileMetrics(forensics: Forensics): FileMetrics[] {
   const ownershipMap = new Map(forensics.ownership.map((o) => [o.file, o] as const));
   const churnMap = new Map(forensics.churn.map((c) => [c.file, c] as const));
   const couplingMap = buildCouplingMap(forensics.coupledPairs);
+  const topContributorsMap = new Map(forensics.topContributors.map((t) => [t.file, t] as const));
 
   const allFiles = new Set([
     ...hotspotMap.keys(),
     ...ageMap.keys(),
     ...ownershipMap.keys(),
     ...churnMap.keys(),
+    ...topContributorsMap.keys(),
   ]);
 
   return [...allFiles].map((file) =>
-    buildFileMetric(file, hotspotMap, ageMap, ownershipMap, churnMap, couplingMap)
+    buildFileMetric(
+      file,
+      hotspotMap,
+      ageMap,
+      ownershipMap,
+      churnMap,
+      couplingMap,
+      topContributorsMap
+    )
   );
 }

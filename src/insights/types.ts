@@ -64,6 +64,11 @@ export interface FileMetrics {
   readonly mainDev: string;
   readonly authorCount: number;
   readonly coupledWith: readonly { readonly file: string; readonly percent: number }[];
+  readonly topContributors: readonly {
+    readonly author: string;
+    readonly percent: number;
+    readonly revisions: number;
+  }[];
 }
 
 /** Thresholds for insight generation */

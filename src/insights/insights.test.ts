@@ -82,6 +82,17 @@ const mockForensics: Forensics = {
     { file: 'utils.ts', added: 100, deleted: 50, churn: 150, revisions: 20, exists: true },
   ],
   communication: [],
+  topContributors: [
+    {
+      file: 'app.ts',
+      contributors: [
+        { author: 'alice', percent: 60, revisions: 30 },
+        { author: 'bob', percent: 40, revisions: 20 },
+      ],
+      authorCount: 2,
+      exists: true,
+    },
+  ],
   stats: { fileStats: {}, pairCoChanges: {} },
 };
 
@@ -207,6 +218,22 @@ describe('extractFileMetrics', () => {
     expect(hotMetrics!.mainDev).toBe('unknown'); // fallback: 'unknown'
     expect(hotMetrics!.authorCount).toBe(0); // fallback: 0
     expect(hotMetrics!.coupledWith).toEqual([]); // fallback: []
+  });
+
+  it('should include topContributors from forensics', () => {
+    const metrics = extractFileMetrics(mockForensics);
+    const appMetrics = metrics.find((m) => m.file === 'app.ts');
+
+    expect(appMetrics!.topContributors).toEqual([
+      { author: 'alice', percent: 60, revisions: 30 },
+      { author: 'bob', percent: 40, revisions: 20 },
+    ]);
+  });
+
+  it('should use empty array fallback for topContributors', () => {
+    const metrics = extractFileMetrics(mockForensics);
+    const hotMetrics = metrics.find((m) => m.file === 'hot.ts');
+    expect(hotMetrics!.topContributors).toEqual([]);
   });
 
   it('should use fallback values for files only in churn', () => {
