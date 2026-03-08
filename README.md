@@ -14,10 +14,9 @@ A TypeScript library for providing insights from git commit history.
 
 ## Motivation
 
-Part exploration after dealing with such questions and digging online for good ways to get insights from the "meta" of coding, and part needing such library for some other tools I am looking to build.
-While there are some great tools out there that can look at Git history and provide insights and reports ([git-of-theseus](https://github.com/erikbern/git-of-theseus), [code-maat](https://github.com/adamtornhill/code-maat), [git-fame](https://github.com/casperdcl/git-fame), [git-quick-stats](https://github.com/git-quick-stats/git-quick-stats),[MergeStat](https://github.com/mergestat/mergestat-lite), [Hercules](https://github.com/src-d/hercules), [gitinspector](https://github.com/ejwa/gitinspector)) - they "feel" heavy and not well suited to be backend for any dev-tool.
+Existing git analysis tools ([code-maat](https://github.com/adamtornhill/code-maat), [git-of-theseus](https://github.com/erikbern/git-of-theseus), [Hercules](https://github.com/src-d/hercules), etc.) are great for reports but feel heavy as a backend for dev-tools. This library is designed to be lightweight, fast, and embeddable.
 
-Lastly, while very enticing, I would not recommend running this on years of commits, but rather focus on more recent history (6-9 months of work). While you could do this for 20 years of code, and given this library does follows renames and such, history will make sense, but most of the data may get polluted given the long history.
+> **Tip:** Focus on recent history (6-9 months). While the library handles renames and long histories correctly, older data tends to add noise.
 
 ## Installation
 
@@ -41,6 +40,7 @@ forensics.couplingRankings; // Architectural hubs
 forensics.codeAge; // Stale code detection
 forensics.ownership; // Knowledge silos
 forensics.communication; // Developer coordination needs
+forensics.topContributors; // Per-file contributor breakdown
 ```
 
 ## Example Output
@@ -51,112 +51,33 @@ Running `computeForensics` on a repository returns structured data across all me
 {
   "analyzedCommits": 842,
   "dateRange": { "from": "2024-03-10", "to": "2025-01-15" },
-  "metadata": {
-    "maxCommitsAnalyzed": 1000,
-    "topN": 50,
-    "totalFilesAnalyzed": 134,
-    "totalAuthors": 12,
-    "analyzedAt": "2025-01-20T14:32:00Z",
-  },
+  "metadata": { "totalFilesAnalyzed": 134, "totalAuthors": 12 },
 
-  // Files changed most often — where bugs likely hide
   "hotspots": [
     { "file": "src/api/routes.ts", "revisions": 87, "exists": true },
     { "file": "src/core/engine.ts", "revisions": 64, "exists": true },
-    { "file": "src/utils/helpers.ts", "revisions": 41, "exists": true },
   ],
 
-  // Files that always change together — hidden dependencies
   "coupledPairs": [
     {
       "file1": "src/api/routes.ts",
       "file2": "src/api/middleware.ts",
       "couplingPercent": 82,
       "coChanges": 34,
-      "file1Exists": true,
-      "file2Exists": true,
-    },
-    {
-      "file1": "src/db/schema.ts",
-      "file2": "src/db/migrations.ts",
-      "couplingPercent": 91,
-      "coChanges": 22,
-      "file1Exists": true,
-      "file2Exists": true,
     },
   ],
 
-  // Architectural hubs — files coupled to many others
-  "couplingRankings": [
-    { "file": "src/api/routes.ts", "couplingScore": 8, "exists": true },
-    { "file": "src/core/engine.ts", "couplingScore": 5, "exists": true },
-  ],
-
-  // Stale code — unchanged for a long time
-  "codeAge": [
-    {
-      "file": "src/legacy/parser.ts",
-      "ageMonths": 14,
-      "lastModified": "2023-11-02",
-      "exists": true,
-    },
-    {
-      "file": "src/utils/constants.ts",
-      "ageMonths": 9,
-      "lastModified": "2024-04-15",
-      "exists": true,
-    },
-  ],
-
-  // Knowledge silos — who owns what
   "ownership": [
     {
       "file": "src/core/engine.ts",
       "mainDev": "alice",
       "ownershipPercent": 34,
-      "refactoringDev": "bob",
-      "refactoringOwnership": 28,
       "fractalValue": 0.18,
       "authorCount": 7,
-      "exists": true,
-    },
-    {
-      "file": "src/api/routes.ts",
-      "mainDev": "carol",
-      "ownershipPercent": 62,
-      "refactoringDev": "carol",
-      "refactoringOwnership": 55,
-      "fractalValue": 0.52,
-      "authorCount": 4,
-      "exists": true,
     },
   ],
 
-  // Code volatility — lines added and deleted
-  "churn": [
-    {
-      "file": "src/core/engine.ts",
-      "added": 3200,
-      "deleted": 1800,
-      "churn": 5000,
-      "revisions": 64,
-      "exists": true,
-    },
-    {
-      "file": "src/api/routes.ts",
-      "added": 1400,
-      "deleted": 600,
-      "churn": 2000,
-      "revisions": 87,
-      "exists": true,
-    },
-  ],
-
-  // Developer coordination needs (Conway's Law)
-  "communication": [
-    { "author1": "alice", "author2": "bob", "sharedEntities": 12, "strength": 67 },
-    { "author1": "carol", "author2": "alice", "sharedEntities": 8, "strength": 45 },
-  ],
+  // ... plus churn, codeAge, couplingRankings, communication, topContributors
 }
 ```
 
@@ -168,7 +89,6 @@ Passing the result to `generateInsights` produces actionable alerts:
     "file": "src/core/engine.ts",
     "type": "hotspot",
     "severity": "critical",
-    "data": { "type": "hotspot", "revisions": 64, "rank": 2 },
     "fragments": {
       "title": "Hotspot",
       "finding": "64 revisions, ranked #2 in repository",
@@ -178,26 +98,8 @@ Passing the result to `generateInsights` produces actionable alerts:
   },
   {
     "file": "src/core/engine.ts",
-    "type": "high-churn",
-    "severity": "critical",
-    "data": { "type": "high-churn", "churn": 5000, "added": 3200, "deleted": 1800 },
-    "fragments": {
-      "title": "High Churn",
-      "finding": "5,000 lines changed (+3,200 / -1,800)",
-      "risk": "Frequent rewrites suggest unclear requirements or architectural friction",
-      "suggestion": "Consider refactoring to stabilize this file",
-    },
-  },
-  {
-    "file": "src/core/engine.ts",
     "type": "ownership-risk",
     "severity": "critical",
-    "data": {
-      "type": "ownership-risk",
-      "fractalValue": 0.18,
-      "authorCount": 7,
-      "mainDev": "alice",
-    },
     "fragments": {
       "title": "Fragmented Ownership",
       "finding": "7 contributors, fragmentation score 0.18",
@@ -205,47 +107,13 @@ Passing the result to `generateInsights` produces actionable alerts:
       "suggestion": "Request review from alice (primary contributor)",
     },
   },
-  {
-    "file": "src/legacy/parser.ts",
-    "type": "stale-code",
-    "severity": "info",
-    "data": { "type": "stale-code", "ageMonths": 14, "lastModified": "2023-11-02" },
-    "fragments": {
-      "title": "Stale Code",
-      "finding": "Unchanged for 14 months (since Nov 2023)",
-      "risk": "Untouched code drifts from current conventions and loses institutional knowledge",
-      "suggestion": "Extra review recommended; verify tests still cover this code",
-    },
-  },
+  // ... insights generated for each metric that exceeds thresholds
 ]
 ```
 
 ## Actionable Insights
 
-Raw metrics are useful, but `generateInsights` transforms them into actionable alerts with human-readable messages:
-
-```typescript
-import { computeForensics, generateInsights } from 'git-forensics';
-
-const forensics = await computeForensics(git);
-const insights = generateInsights(forensics);
-
-for (const insight of insights) {
-  console.log(`${insight.file} — ${insight.fragments.title}`);
-  console.log(`  ${insight.fragments.finding}`);
-  console.log(`  ${insight.fragments.suggestion}`);
-}
-```
-
-Each insight includes severity (`info`, `warning`, `critical`) and pre-composed fragments:
-
-```typescript
-insight.severity; // "warning" | "critical"
-insight.fragments.title; // "Hotspot"
-insight.fragments.finding; // "45 revisions, ranked #3 in repository"
-insight.fragments.risk; // "Frequently changed files correlate with higher defect rates"
-insight.fragments.suggestion; // "Consider breaking into smaller modules..."
-```
+`generateInsights` transforms metrics into alerts with severity (`info`, `warning`, `critical`) and human-readable fragments (`title`, `finding`, `risk`, `suggestion`).
 
 ### Insight thresholds
 
@@ -258,28 +126,39 @@ insight.fragments.suggestion; // "Consider breaking into smaller modules..."
 | What's been forgotten?              | `codeAge`          | Unchanged ≥12 months   |
 | Who owns what? Any knowledge silos? | `ownership`        | ≥3 authors, fragmented |
 
-### Build your own insights
-
-The `forensics.stats` field contains the complete temporal history—every commit, by every author, for every file:
+All thresholds are overridable — pass a partial `thresholds` object and only the values you specify will change:
 
 ```typescript
-const forensics = await computeForensics(git);
-
-// Access raw stats for custom analysis
-for (const [file, fileStats] of Object.entries(forensics.stats.fileStats)) {
-  // fileStats.byAuthor: Record<author, CommitEntry[]>
-  // fileStats.authorContributions: Record<author, {additions, deletions, revisions}>
-  // fileStats.totalRevisions, latestCommit, nameHistory, couplingScore
-}
+const insights = generateInsights(forensics, {
+  thresholds: {
+    hotspot: { warning: 50, critical: 100 },
+    churn: { warning: 2000 },
+    staleCode: { warning: 6, critical: 18 },
+    coupling: { minPercent: 80 },
+    ownershipRisk: { warning: 0.3, critical: 0.1, minAuthors: 4 },
+    couplingScore: { warning: 8, critical: 15 },
+  },
+});
 ```
 
-Ideas for custom metrics:
+### Analysis options
 
-- **Temporal histograms** — Activity by week/month, burst detection (use `CommitEntry.date`)
-- **Author expertise scores** — Weight recent changes higher (use `byAuthor` + recency)
-- **Structural stability** — Files that move often signal architectural churn (use `nameHistory`)
-- **Churn velocity** — Is volatility increasing or stabilizing? (use `CommitEntry.additions/deletions`)
-- **Handoff detection** — Who leaves code for whom to modify? (use sequential authors in `byAuthor`)
+The analysis pipeline has its own configurable thresholds that control what data is collected:
+
+```typescript
+const forensics = await computeForensics(git, {
+  maxFilesPerCommit: 50, // skip large commits from coupling analysis (default: 50)
+  minCoChanges: 3, // minimum co-changes to report a coupled pair (default: 3)
+  minCouplingPercent: 30, // minimum coupling % to report a pair (default: 30)
+  minSharedEntities: 2, // minimum shared files for communication pairs (default: 2)
+});
+```
+
+These options are also available on `computeForensicsFromData()`.
+
+### Build your own insights
+
+`forensics.stats` contains the complete temporal history—every commit, by every author, for every file. Access `stats.fileStats[file].byAuthor`, `authorContributions`, `nameHistory`, etc. to build custom metrics like temporal histograms, expertise scores, or handoff detection.
 
 ## Complexity Analysis
 
@@ -305,46 +184,19 @@ for (const insight of insights) {
 
 ### Optimization: Store & Reuse (large codebases)
 
-git-forensics is fast (~700ms for 100k commits), for very large repos you can eliminate git history scans entirely by storing forensics data between runs.
-
-**Step 1: Full analysis (scheduled or first run)**
+For very large repos, store the `computeForensics` result between runs and rehydrate with `generateInsights` — no git scan needed:
 
 ```typescript
-import { simpleGit } from 'simple-git';
-import { computeForensics } from 'git-forensics';
-
-const git = simpleGit();
-const forensics = await computeForensics(git);
-
-// Store on your server for later reuse
-await fetch('https://your-server/api/forensics', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    repo: 'your-org/your-repo',
-    data: forensics,
-  }),
-});
-```
-
-**Step 2: Fast PR insights (no git scan needed)**
-
-```typescript
-import { simpleGit } from 'simple-git';
 import { generateInsights, getChangedFiles } from 'git-forensics';
 
-const git = simpleGit();
-
-// Fetch pre-computed forensics from your server
-const res = await fetch('https://your-server/api/forensics?repo=your-org/your-repo');
-const forensics = await res.json();
+// Fetch pre-computed forensics from your server/cache
+const forensics = await fetch('https://your-server/api/forensics?repo=org/repo').then((r) =>
+  r.json()
+);
 
 // Generate insights only for PR changed files
 const changedFiles = await getChangedFiles(git, 'origin/main');
-const insights = generateInsights(forensics, {
-  files: changedFiles,
-  minSeverity: 'warning',
-});
+const insights = generateInsights(forensics, { files: changedFiles, minSeverity: 'warning' });
 ```
 
 ## Data-Driven API

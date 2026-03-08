@@ -18,3 +18,6 @@ export type { ChurnOptions } from './churn.js';
 
 export { computeCommunication } from './communication.js';
 export type { CommunicationOptions } from './communication.js';
+
+export { computeTopContributors } from './top-contributors.js';
+export type { TopContributorsOptions } from './top-contributors.js';

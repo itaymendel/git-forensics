@@ -21,6 +21,8 @@ export type {
   FileChurn,
   CommunicationPair,
   AuthorContribution,
+  ContributorBreakdown,
+  FileContributors,
   TruncationInfo,
   ForensicsMetadata,
   Forensics,
@@ -52,6 +54,7 @@ export {
   computeOwnership,
   computeChurn,
   computeCommunication,
+  computeTopContributors,
 } from './metrics/index.js';
 export type {
   RevisionsOptions,
@@ -61,6 +64,7 @@ export type {
   OwnershipOptions,
   ChurnOptions,
   CommunicationOptions,
+  TopContributorsOptions,
 } from './metrics/index.js';
 
 // Insight types

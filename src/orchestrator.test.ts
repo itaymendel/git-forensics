@@ -86,6 +86,7 @@ describe('computeForensics', () => {
 
     expect(result.codeAge.length).toBeLessThanOrEqual(5);
     expect(result.ownership.length).toBeLessThanOrEqual(5);
+    expect(result.topContributors.length).toBeLessThanOrEqual(5);
   });
 
   it('should return empty result when no commits remain after filtering', async () => {
@@ -106,6 +107,7 @@ describe('computeForensics', () => {
     expect(result.dateRange).toEqual({ from: '', to: '' });
     expect(result.hotspots).toEqual([]);
     expect(result.codeAge).toEqual([]);
+    expect(result.topContributors).toEqual([]);
   });
 
   it('should propagate options to getCommitLog', async () => {

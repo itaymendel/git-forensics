@@ -18,6 +18,7 @@ import {
   computeOwnership,
   computeChurn,
   computeCommunication,
+  computeTopContributors,
 } from './metrics/index.js';
 import { withTopN } from './utils.js';
 
@@ -34,6 +35,9 @@ export interface CoreForensicsOptions {
   topN?: number;
   minRevisions?: number;
   complexity?: Map<string, number>;
+  minCoChanges?: number;
+  minCouplingPercent?: number;
+  minSharedEntities?: number;
 }
 
 function createEmptyForensics(metadata: { maxCommitsAnalyzed: number; topN: number }): Forensics {
@@ -54,6 +58,7 @@ function createEmptyForensics(metadata: { maxCommitsAnalyzed: number; topN: numb
     ownership: [],
     churn: [],
     communication: [],
+    topContributors: [],
     stats: { fileStats: {}, pairCoChanges: {} },
   };
 }
@@ -63,7 +68,15 @@ export function computeForensicsCore(
   stats: AggregatedStats,
   options: CoreForensicsOptions & { maxCommitsAnalyzed: number }
 ): Forensics {
-  const { topN = 50, minRevisions = 1, complexity, maxCommitsAnalyzed } = options;
+  const {
+    topN = 50,
+    minRevisions = 1,
+    complexity,
+    maxCommitsAnalyzed,
+    minCoChanges,
+    minCouplingPercent,
+    minSharedEntities,
+  } = options;
 
   if (commits.length === 0) {
     return createEmptyForensics({ maxCommitsAnalyzed, topN });
@@ -74,15 +87,17 @@ export function computeForensicsCore(
   const allCodeAge = computeCodeAge(stats);
   const allOwnership = computeOwnership(stats);
   const allChurn = computeChurn(stats);
-  const allCommunication = computeCommunication(stats);
+  const allCommunication = computeCommunication(stats, { minSharedEntities });
+  const allTopContributors = computeTopContributors(stats);
 
   const hotspots = withTopN(revisions, topN);
-  const coupledPairs = computeCoupledPairs(stats, { topN });
+  const coupledPairs = computeCoupledPairs(stats, { topN, minCoChanges, minCouplingPercent });
   const couplingRankings = withTopN(allCouplingRankings, topN);
   const codeAge = withTopN(allCodeAge, topN);
   const ownership = withTopN(allOwnership, topN);
   const churn = withTopN(allChurn, topN);
   const communication = withTopN(allCommunication, topN);
+  const topContributors = withTopN(allTopContributors, topN);
 
   const { dateRange, totalFilesAnalyzed, totalAuthors } = computeCommitMetadata(commits);
 
@@ -93,6 +108,7 @@ export function computeForensicsCore(
     ownership: truncationInfo(allOwnership.length, topN),
     churn: truncationInfo(allChurn.length, topN),
     communication: truncationInfo(allCommunication.length, topN),
+    topContributors: truncationInfo(allTopContributors.length, topN),
   };
 
   return {
@@ -113,6 +129,7 @@ export function computeForensicsCore(
     ownership,
     churn,
     communication,
+    topContributors,
     stats,
   };
 }
@@ -147,6 +164,10 @@ export async function computeForensics(
     skipMergeCommits = true,
     followRenames = true,
     complexity = false,
+    maxFilesPerCommit = 50,
+    minCoChanges,
+    minCouplingPercent,
+    minSharedEntities,
   } = options;
 
   let commits = await getCommitLog(git, {
@@ -166,7 +187,7 @@ export async function computeForensics(
     return createEmptyForensics({ maxCommitsAnalyzed: maxCommits, topN });
   }
 
-  const rawStats = aggregateCommits(commits, { maxFilesPerCommit: 50 });
+  const rawStats = aggregateCommits(commits, { maxFilesPerCommit });
   const stats = await enrichWithExistence(git, rawStats);
 
   // Calculate complexity for all files when enabled
@@ -195,5 +216,8 @@ export async function computeForensics(
     minRevisions,
     complexity: complexityMap,
     maxCommitsAnalyzed: maxCommits,
+    minCoChanges,
+    minCouplingPercent,
+    minSharedEntities,
   });
 }

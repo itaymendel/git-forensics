@@ -107,6 +107,10 @@ export function computeForensicsFromData(
     skipMergeCommits = true,
     followRenames = true,
     complexityScores,
+    maxFilesPerCommit = 50,
+    minCoChanges,
+    minCouplingPercent,
+    minSharedEntities,
   } = options;
 
   let commits: CommitLog[] = transformGitLog(data.log, { detectRenames: followRenames });
@@ -118,7 +122,7 @@ export function computeForensicsFromData(
   commits = filterCommitFiles(commits, { exclude });
   commits = normalizeAuthors(commits, { authorMap });
 
-  const rawStats = aggregateCommits(commits, { maxFilesPerCommit: 50 });
+  const rawStats = aggregateCommits(commits, { maxFilesPerCommit });
   const stats = enrichWithExistenceFromSet(rawStats, parseTrackedFiles(data.trackedFiles));
 
   const complexityMap = complexityScores ? new Map(Object.entries(complexityScores)) : undefined;
@@ -128,5 +132,8 @@ export function computeForensicsFromData(
     minRevisions,
     complexity: complexityMap,
     maxCommitsAnalyzed: commits.length,
+    minCoChanges,
+    minCouplingPercent,
+    minSharedEntities,
   });
 }
