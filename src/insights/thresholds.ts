@@ -1,33 +1,34 @@
 import type { InsightThresholds } from './types.js';
 
 /**
- * Default thresholds based on "Code as a Crime Scene" research.
+ * Default thresholds using percentile-based classification.
+ * P75 = warning, P90 = critical — self-calibrating across codebases.
  */
 export const DEFAULT_THRESHOLDS: InsightThresholds = {
   hotspot: {
-    warning: 25,
-    critical: 50,
+    warning: 75,
+    critical: 90,
   },
   coupling: {
     minPercent: 70,
     warnIfMissingFromPR: true,
   },
   ownershipRisk: {
-    warning: 0.4,
-    critical: 0.2,
+    warning: 75,
+    critical: 90,
     minAuthors: 3,
   },
   staleCode: {
-    warning: 12,
-    critical: 24,
+    warning: 75,
+    critical: 90,
   },
   churn: {
-    warning: 1000,
-    critical: 3000,
+    warning: 75,
+    critical: 90,
   },
   couplingScore: {
-    warning: 5,
-    critical: 10,
+    warning: 75,
+    critical: 90,
   },
 };
 

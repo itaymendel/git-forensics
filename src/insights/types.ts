@@ -10,9 +10,20 @@ export type InsightType =
 /** Severity levels for insights */
 export type InsightSeverity = 'info' | 'warning' | 'critical';
 
+/** Percentile-based thresholds for a metric */
+export interface PercentileThresholds {
+  readonly warning: number;
+  readonly critical: number;
+}
+
 /** Type-specific data payloads */
 export type InsightData =
-  | { readonly type: 'hotspot'; readonly revisions: number; readonly rank: number }
+  | {
+      readonly type: 'hotspot';
+      readonly revisions: number;
+      readonly rank: number;
+      readonly percentile: number;
+    }
   | {
       readonly type: 'coupling';
       readonly coupledWith: string;
@@ -24,15 +35,27 @@ export type InsightData =
       readonly fractalValue: number;
       readonly authorCount: number;
       readonly mainDev: string;
+      readonly percentile: number;
     }
-  | { readonly type: 'stale-code'; readonly ageMonths: number; readonly lastModified: string }
+  | {
+      readonly type: 'stale-code';
+      readonly ageMonths: number;
+      readonly lastModified: string;
+      readonly percentile: number;
+    }
   | {
       readonly type: 'high-churn';
       readonly churn: number;
       readonly added: number;
       readonly deleted: number;
+      readonly percentile: number;
     }
-  | { readonly type: 'coupling-score'; readonly couplingScore: number; readonly rank: number };
+  | {
+      readonly type: 'coupling-score';
+      readonly couplingScore: number;
+      readonly rank: number;
+      readonly percentile: number;
+    };
 
 /** Message fragments for easy annotation building */
 export interface InsightFragments {
@@ -69,35 +92,55 @@ export interface FileMetrics {
     readonly percent: number;
     readonly revisions: number;
   }[];
+  readonly percentiles?: {
+    readonly revisions: number;
+    readonly churn: number;
+    readonly ownershipRisk: number;
+    readonly ageMonths: number;
+    readonly couplingScore: number;
+  };
+  readonly riskScore?: number;
 }
 
 /** Thresholds for insight generation */
 export interface InsightThresholds {
-  readonly hotspot: {
-    readonly warning: number;
-    readonly critical: number;
-  };
+  readonly hotspot: PercentileThresholds;
   readonly coupling: {
     readonly minPercent: number;
     readonly warnIfMissingFromPR: boolean;
   };
-  readonly ownershipRisk: {
-    readonly warning: number;
-    readonly critical: number;
-    readonly minAuthors: number;
+  readonly ownershipRisk: PercentileThresholds & { readonly minAuthors: number };
+  readonly staleCode: PercentileThresholds;
+  readonly churn: PercentileThresholds;
+  readonly couplingScore: PercentileThresholds;
+}
+
+/** Risk score weights for composite scoring */
+export interface RiskWeights {
+  readonly revisions: number;
+  readonly churn: number;
+  readonly ownershipRisk: number;
+  readonly age: number;
+  readonly couplingScore: number;
+}
+
+/** Computed risk score for a single file */
+export interface FileRiskScore {
+  readonly file: string;
+  readonly riskScore: number;
+  readonly breakdown: {
+    readonly revisions: number;
+    readonly churn: number;
+    readonly ownershipRisk: number;
+    readonly age: number;
+    readonly couplingScore: number;
   };
-  readonly staleCode: {
-    readonly warning: number;
-    readonly critical: number;
-  };
-  readonly churn: {
-    readonly warning: number;
-    readonly critical: number;
-  };
-  readonly couplingScore: {
-    readonly warning: number;
-    readonly critical: number;
-  };
+}
+
+/** Options for extractFileMetrics */
+export interface ExtractFileMetricsOptions {
+  readonly includePercentiles?: boolean;
+  readonly riskWeights?: Partial<RiskWeights>;
 }
 
 /** Options for generateInsights */

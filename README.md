@@ -8,6 +8,8 @@ A TypeScript library for providing insights from git commit history.
 - **Fast - ~700ms for 100,000 commits (getting the git-log will be slow)**
 - **Follows file rename and removal**
 - **Optimized for CI**
+- **Percentile-based classification** — self-calibrating thresholds that work across any codebase size
+- **Composite risk scoring** — weighted multi-metric risk scores per file
 - **Integrated (a VERY basic) [code complexity engine](https://github.com/itaymendel/indent-complexity)**
 - **Bring your own code complexity score**
 - **Add custom metrics using full temporal history**
@@ -89,9 +91,15 @@ Passing the result to `generateInsights` produces actionable alerts:
     "file": "src/core/engine.ts",
     "type": "hotspot",
     "severity": "critical",
+    "data": {
+      "type": "hotspot",
+      "revisions": 64,
+      "rank": 2,
+      "percentile": 95,
+    },
     "fragments": {
       "title": "Hotspot",
-      "finding": "64 revisions, ranked #2 in repository",
+      "finding": "64 revisions (P95), ranked #2 in repository",
       "risk": "Top-ranked churn file — prioritize for refactoring or test hardening",
       "suggestion": "Consider breaking into smaller modules or adding test coverage",
     },
@@ -100,9 +108,16 @@ Passing the result to `generateInsights` produces actionable alerts:
     "file": "src/core/engine.ts",
     "type": "ownership-risk",
     "severity": "critical",
+    "data": {
+      "type": "ownership-risk",
+      "fractalValue": 0.18,
+      "authorCount": 7,
+      "mainDev": "alice",
+      "percentile": 92,
+    },
     "fragments": {
       "title": "Fragmented Ownership",
-      "finding": "7 contributors, fragmentation score 0.18",
+      "finding": "7 contributors, fragmentation score 0.18 (P92)",
       "risk": "Diffuse ownership slows review cycles and increases merge conflicts",
       "suggestion": "Request review from alice (primary contributor)",
     },
@@ -113,30 +128,32 @@ Passing the result to `generateInsights` produces actionable alerts:
 
 ## Actionable Insights
 
-`generateInsights` transforms metrics into alerts with severity (`info`, `warning`, `critical`) and human-readable fragments (`title`, `finding`, `risk`, `suggestion`).
+`generateInsights` transforms metrics into alerts with severity (`warning`, `critical`) and human-readable fragments (`title`, `finding`, `risk`, `suggestion`).
+
+Insights use **percentile-based thresholds** — a file is flagged based on where it ranks relative to other files in the same repository. This makes thresholds self-calibrating across codebases of any size.
 
 ### Insight thresholds
 
-| Question                            | Metric             | Insight triggers when  |
-| ----------------------------------- | ------------------ | ---------------------- |
-| Where's the riskiest code?          | `hotspots`         | ≥25 revisions          |
-| What keeps getting rewritten?       | `churn`            | ≥1000 lines churned    |
-| What hidden dependencies exist?     | `coupledPairs`     | ≥70% co-change rate    |
-| What has ripple effects?            | `couplingRankings` | Coupled to ≥5 files    |
-| What's been forgotten?              | `codeAge`          | Unchanged ≥12 months   |
-| Who owns what? Any knowledge silos? | `ownership`        | ≥3 authors, fragmented |
+| Question                            | Metric             | Insight triggers when                          |
+| ----------------------------------- | ------------------ | ---------------------------------------------- |
+| Where's the riskiest code?          | `hotspots`         | Revisions in P75+ (warning) or P90+ (critical) |
+| What keeps getting rewritten?       | `churn`            | Churn in P75+ or P90+                          |
+| What hidden dependencies exist?     | `coupledPairs`     | ≥70% co-change rate (absolute, not percentile) |
+| What has ripple effects?            | `couplingRankings` | Coupling score in P75+ or P90+                 |
+| What's been forgotten?              | `codeAge`          | Age in P75+ or P90+                            |
+| Who owns what? Any knowledge silos? | `ownership`        | ≥3 authors, fragmentation in P75+ or P90+      |
 
 All thresholds are overridable — pass a partial `thresholds` object and only the values you specify will change:
 
 ```typescript
 const insights = generateInsights(forensics, {
   thresholds: {
-    hotspot: { warning: 50, critical: 100 },
-    churn: { warning: 2000 },
-    staleCode: { warning: 6, critical: 18 },
-    coupling: { minPercent: 80 },
-    ownershipRisk: { warning: 0.3, critical: 0.1, minAuthors: 4 },
-    couplingScore: { warning: 8, critical: 15 },
+    hotspot: { warning: 80, critical: 95 }, // percentile cutoffs
+    churn: { warning: 80 },
+    staleCode: { warning: 60, critical: 85 },
+    coupling: { minPercent: 80 }, // stays absolute — not percentile-based
+    ownershipRisk: { warning: 70, critical: 90, minAuthors: 4 },
+    couplingScore: { warning: 80, critical: 95 },
   },
 });
 ```
@@ -159,6 +176,83 @@ These options are also available on `computeForensicsFromData()`.
 ### Build your own insights
 
 `forensics.stats` contains the complete temporal history—every commit, by every author, for every file. Access `stats.fileStats[file].byAuthor`, `authorContributions`, `nameHistory`, etc. to build custom metrics like temporal histograms, expertise scores, or handoff detection.
+
+## Composite Risk Score
+
+`computeRiskScores` produces a single 0-100 risk score per file by combining percentile ranks across all metrics with configurable weights:
+
+```typescript
+import { computeRiskScores } from 'git-forensics';
+
+const scores = computeRiskScores(forensics);
+// [
+//   { file: 'src/core/engine.ts', riskScore: 87.5, breakdown: { revisions: 22.5, churn: 25, ownershipRisk: 18, age: 12, couplingScore: 10 } },
+//   { file: 'src/api/routes.ts', riskScore: 72.0, breakdown: { ... } },
+//   ...
+// ]
+```
+
+Default weights:
+
+| Metric         | Weight |
+| -------------- | ------ |
+| Revisions      | 0.25   |
+| Churn          | 0.25   |
+| Ownership Risk | 0.20   |
+| Age            | 0.15   |
+| Coupling Score | 0.15   |
+
+Override weights to match your priorities:
+
+```typescript
+const scores = computeRiskScores(forensics, {
+  revisions: 0.4,
+  churn: 0.3,
+  ownershipRisk: 0.1,
+  age: 0.1,
+  couplingScore: 0.1,
+});
+```
+
+## File Metrics with Percentiles
+
+`extractFileMetrics` flattens forensics into per-file rows for storage. Pass `includePercentiles: true` to enrich each row with percentile ranks and a composite risk score:
+
+```typescript
+import { extractFileMetrics } from 'git-forensics';
+
+const metrics = extractFileMetrics(forensics, { includePercentiles: true });
+// Each entry includes:
+// {
+//   file, revisions, ageMonths, churn, fractalValue, ...
+//   percentiles: { revisions: 90, churn: 75, ownershipRisk: 85, ageMonths: 60, couplingScore: 40 },
+//   riskScore: 72.5,
+// }
+```
+
+## Percentile Utilities
+
+The underlying percentile functions are exported for building custom scoring:
+
+```typescript
+import {
+  percentileRank,
+  createPercentileRanker,
+  createInvertedPercentileRanker,
+} from 'git-forensics';
+
+// One-off calculation
+percentileRank(50, [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]); // 45
+
+// Reusable ranker for repeated lookups
+const rank = createPercentileRanker([10, 20, 30, 40, 50]);
+rank(30); // 50
+rank(50); // 90
+
+// Inverted ranker (lower values = higher percentile)
+const riskRank = createInvertedPercentileRanker([0.1, 0.3, 0.5, 0.7, 0.9]);
+riskRank(0.1); // 90 (lowest value = highest risk)
+```
 
 ## Complexity Analysis
 
@@ -236,6 +330,18 @@ validateGitLogData(data); // throws if invalid
 
 const forensics = computeForensicsFromData(data);
 ```
+
+## Migration from v1.x
+
+v2.0.0 replaces absolute thresholds with percentile-based classification. Key changes:
+
+- **`InsightThresholds`** values are now percentile cutoffs (0-100), not raw metric values
+- **`InsightData`** variants (except `coupling`) include a `percentile` field
+- **Stale-code severity** changed from `info`/`warning` to `warning`/`critical`
+- **Finding strings** now include `(Pxx)` percentile annotations
+- **Generator function signatures** added a `percentileRank` parameter (affects direct generator importers)
+- New exports: `computeRiskScores`, `DEFAULT_RISK_WEIGHTS`, `percentileRank`, `createPercentileRanker`, `createInvertedPercentileRanker`
+- New types: `PercentileThresholds`, `RiskWeights`, `FileRiskScore`, `ExtractFileMetricsOptions`
 
 ## Attribution
 

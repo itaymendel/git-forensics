@@ -7,7 +7,16 @@ export type { TransformGitLogOptions } from './commit-log.js';
 export { computeForensicsFromData, gitLogDataSchema, validateGitLogData } from './from-data.js';
 
 // CI Insights
-export { generateInsights, extractFileMetrics, DEFAULT_THRESHOLDS } from './insights/index.js';
+export {
+  generateInsights,
+  extractFileMetrics,
+  DEFAULT_THRESHOLDS,
+  computeRiskScores,
+  DEFAULT_RISK_WEIGHTS,
+  percentileRank,
+  createPercentileRanker,
+  createInvertedPercentileRanker,
+} from './insights/index.js';
 
 // Output types
 export type {
@@ -76,5 +85,9 @@ export type {
   FileInsight,
   FileMetrics,
   InsightThresholds,
+  PercentileThresholds,
   GenerateInsightsOptions,
+  RiskWeights,
+  FileRiskScore,
+  ExtractFileMetricsOptions,
 } from './insights/index.js';
