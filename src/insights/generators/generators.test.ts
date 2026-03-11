@@ -4,43 +4,60 @@ import { generateCouplingInsight } from './coupling.js';
 import { generateOwnershipInsight } from './ownership.js';
 import { generateStaleCodeInsight } from './stale-code.js';
 import { generateChurnInsight } from './churn.js';
-import type { FileRevisions, CoupledPair, FileOwnership, FileAge, FileChurn } from '../../types.js';
+import { generateCouplingScoreInsight } from './coupling-score.js';
+import type {
+  FileRevisions,
+  CoupledPair,
+  FileOwnership,
+  FileAge,
+  FileChurn,
+  FileCoupling,
+} from '../../types.js';
 import type { InsightThresholds } from '../types.js';
 import { DEFAULT_THRESHOLDS } from '../thresholds.js';
+import { createPercentileRanker, createInvertedPercentileRanker } from '../percentile.js';
 
 const thresholds = DEFAULT_THRESHOLDS;
 
+// Distribution of 10 files: values 10..100 step 10
+// P75 threshold means ~top 25% flagged, P90 means ~top 10%
+const revisionsDist = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+const revisionsRanker = createPercentileRanker(revisionsDist);
+
 describe('generateHotspotInsight', () => {
-  it('should return null when below warning threshold', () => {
-    const hotspot: FileRevisions = { file: 'app.ts', revisions: 10, exists: true };
-    expect(generateHotspotInsight(hotspot, 1, thresholds)).toBeNull();
+  it('should return null when below P75 (warning threshold)', () => {
+    // 70 → P65 (6 below, 1 equal out of 10) → (6+0.5)/10*100 = 65 → below 75
+    const hotspot: FileRevisions = { file: 'app.ts', revisions: 70, exists: true };
+    expect(generateHotspotInsight(hotspot, 4, thresholds, revisionsRanker)).toBeNull();
   });
 
-  it('should return warning severity for revisions >= warning threshold', () => {
-    const hotspot: FileRevisions = { file: 'app.ts', revisions: 30, exists: true };
-    const result = generateHotspotInsight(hotspot, 1, thresholds);
+  it('should return warning for P75-P89', () => {
+    // 80 → P75 (7 below, 1 equal) → (7+0.5)/10*100 = 75 → exactly at warning
+    const hotspot: FileRevisions = { file: 'app.ts', revisions: 80, exists: true };
+    const result = generateHotspotInsight(hotspot, 3, thresholds, revisionsRanker);
 
     expect(result).not.toBeNull();
     expect(result!.severity).toBe('warning');
     expect(result!.type).toBe('hotspot');
-    expect(result!.data).toEqual({ type: 'hotspot', revisions: 30, rank: 1 });
+    expect(result!.data).toEqual({ type: 'hotspot', revisions: 80, rank: 3, percentile: 75 });
   });
 
-  it('should return critical severity for revisions >= critical threshold', () => {
-    const hotspot: FileRevisions = { file: 'app.ts', revisions: 60, exists: true };
-    const result = generateHotspotInsight(hotspot, 1, thresholds);
+  it('should return critical for P90+', () => {
+    // 100 → P95 (9 below, 1 equal) → (9+0.5)/10*100 = 95 → above 90
+    const hotspot: FileRevisions = { file: 'app.ts', revisions: 100, exists: true };
+    const result = generateHotspotInsight(hotspot, 1, thresholds, revisionsRanker);
 
     expect(result!.severity).toBe('critical');
+    expect(result!.data.type === 'hotspot' && result!.data.percentile).toBe(95);
   });
 
-  it('should include correct fragments', () => {
-    const hotspot: FileRevisions = { file: 'app.ts', revisions: 47, exists: true };
-    const result = generateHotspotInsight(hotspot, 3, thresholds);
+  it('should include percentile in fragments', () => {
+    const hotspot: FileRevisions = { file: 'app.ts', revisions: 80, exists: true };
+    const result = generateHotspotInsight(hotspot, 3, thresholds, revisionsRanker);
 
     expect(result!.fragments.title).toBe('Hotspot');
-    expect(result!.fragments.finding).toBe('47 revisions, ranked #3 in repository');
-    expect(result!.fragments.risk).toContain('refactoring');
-    expect(result!.fragments.suggestion).toContain('coverage');
+    expect(result!.fragments.finding).toContain('P75');
+    expect(result!.fragments.finding).toContain('80 revisions');
   });
 });
 
@@ -128,18 +145,23 @@ describe('generateCouplingInsight', () => {
 });
 
 describe('generateOwnershipInsight', () => {
-  it('should return null when fractal value above warning threshold', () => {
+  // Inverted: low fractal → high percentile
+  const fractalDist = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+  const ownershipRanker = createInvertedPercentileRanker(fractalDist);
+
+  it('should return null when percentile below warning', () => {
+    // fractal=0.5 → inverted P: (5 above + 0.5*1)/10*100 = 55 → below 75
     const ownership: FileOwnership = {
       file: 'app.ts',
       mainDev: 'alice',
-      ownershipPercent: 80,
+      ownershipPercent: 60,
       refactoringDev: 'alice',
-      refactoringOwnership: 80,
-      fractalValue: 0.6,
-      authorCount: 2,
+      refactoringOwnership: 50,
+      fractalValue: 0.5,
+      authorCount: 5,
       exists: true,
     };
-    expect(generateOwnershipInsight(ownership, thresholds)).toBeNull();
+    expect(generateOwnershipInsight(ownership, thresholds, ownershipRanker)).toBeNull();
   });
 
   it('should return null when author count below minAuthors', () => {
@@ -149,43 +171,45 @@ describe('generateOwnershipInsight', () => {
       ownershipPercent: 50,
       refactoringDev: 'bob',
       refactoringOwnership: 50,
-      fractalValue: 0.3,
+      fractalValue: 0.1,
       authorCount: 2,
       exists: true,
     };
-    expect(generateOwnershipInsight(ownership, thresholds)).toBeNull();
+    expect(generateOwnershipInsight(ownership, thresholds, ownershipRanker)).toBeNull();
   });
 
-  it('should return warning for fractal <= warning threshold', () => {
+  it('should return warning for P75-P89', () => {
+    // fractal=0.2 → inverted P: (8 above + 0.5*1)/10*100 = 85 → above 75, below 90
     const ownership: FileOwnership = {
       file: 'app.ts',
       mainDev: 'alice',
-      ownershipPercent: 40,
+      ownershipPercent: 30,
       refactoringDev: 'bob',
-      refactoringOwnership: 30,
-      fractalValue: 0.35,
+      refactoringOwnership: 20,
+      fractalValue: 0.2,
       authorCount: 5,
       exists: true,
     };
-    const result = generateOwnershipInsight(ownership, thresholds);
+    const result = generateOwnershipInsight(ownership, thresholds, ownershipRanker);
 
     expect(result).not.toBeNull();
     expect(result!.severity).toBe('warning');
     expect(result!.type).toBe('ownership-risk');
   });
 
-  it('should return critical for fractal <= critical threshold', () => {
+  it('should return critical for P90+', () => {
+    // fractal=0.1 → inverted P: (9 above + 0.5*1)/10*100 = 95 → above 90
     const ownership: FileOwnership = {
       file: 'app.ts',
       mainDev: 'alice',
       ownershipPercent: 20,
       refactoringDev: 'bob',
       refactoringOwnership: 15,
-      fractalValue: 0.15,
+      fractalValue: 0.1,
       authorCount: 7,
       exists: true,
     };
-    const result = generateOwnershipInsight(ownership, thresholds);
+    const result = generateOwnershipInsight(ownership, thresholds, ownershipRanker);
 
     expect(result!.severity).toBe('critical');
   });
@@ -197,97 +221,137 @@ describe('generateOwnershipInsight', () => {
       ownershipPercent: 30,
       refactoringDev: 'bob',
       refactoringOwnership: 20,
-      fractalValue: 0.25,
+      fractalValue: 0.2,
       authorCount: 5,
       exists: true,
     };
-    const result = generateOwnershipInsight(ownership, thresholds);
+    const result = generateOwnershipInsight(ownership, thresholds, ownershipRanker);
 
     expect(result!.fragments.suggestion).toContain('alice');
+  });
+
+  it('should include percentile in fragments', () => {
+    const ownership: FileOwnership = {
+      file: 'app.ts',
+      mainDev: 'alice',
+      ownershipPercent: 30,
+      refactoringDev: 'bob',
+      refactoringOwnership: 20,
+      fractalValue: 0.2,
+      authorCount: 5,
+      exists: true,
+    };
+    const result = generateOwnershipInsight(ownership, thresholds, ownershipRanker);
+
+    expect(result!.fragments.finding).toContain('P85');
   });
 });
 
 describe('generateStaleCodeInsight', () => {
-  it('should return null when age below warning threshold', () => {
+  const ageDist = [1, 3, 6, 9, 12, 15, 18, 21, 24, 30];
+  const ageRanker = createPercentileRanker(ageDist);
+
+  it('should return null when percentile below warning', () => {
+    // 12 → P45: (4 below + 0.5*1)/10*100 = 45 → below 75
     const age: FileAge = {
       file: 'app.ts',
-      ageMonths: 6,
-      lastModified: '2024-06-15',
+      ageMonths: 12,
+      lastModified: '2024-01-01',
       exists: true,
     };
-    expect(generateStaleCodeInsight(age, thresholds)).toBeNull();
+    expect(generateStaleCodeInsight(age, thresholds, ageRanker)).toBeNull();
   });
 
-  it('should return info for age >= warning threshold', () => {
+  it('should return warning for P75-P89', () => {
+    // 21 → P75: (7 below + 0.5*1)/10*100 = 75 → at warning
     const age: FileAge = {
       file: 'app.ts',
-      ageMonths: 14,
-      lastModified: '2023-10-15',
+      ageMonths: 21,
+      lastModified: '2023-03-15',
       exists: true,
     };
-    const result = generateStaleCodeInsight(age, thresholds);
+    const result = generateStaleCodeInsight(age, thresholds, ageRanker);
 
     expect(result).not.toBeNull();
-    expect(result!.severity).toBe('info');
+    expect(result!.severity).toBe('warning');
     expect(result!.type).toBe('stale-code');
   });
 
-  it('should return warning for age >= critical threshold', () => {
+  it('should return critical for P90+', () => {
+    // 30 → P95: (9 below + 0.5*1)/10*100 = 95 → above 90
     const age: FileAge = {
       file: 'app.ts',
       ageMonths: 30,
       lastModified: '2022-06-15',
       exists: true,
     };
-    const result = generateStaleCodeInsight(age, thresholds);
+    const result = generateStaleCodeInsight(age, thresholds, ageRanker);
 
-    expect(result!.severity).toBe('warning');
+    expect(result!.severity).toBe('critical');
   });
 
   it('should format lastModified date in fragments', () => {
     const age: FileAge = {
       file: 'app.ts',
-      ageMonths: 14,
+      ageMonths: 24,
       lastModified: '2023-10-15',
       exists: true,
     };
-    const result = generateStaleCodeInsight(age, thresholds);
+    const result = generateStaleCodeInsight(age, thresholds, ageRanker);
 
-    expect(result!.fragments.finding).toContain('14 months');
+    expect(result!.fragments.finding).toContain('24 months');
     expect(result!.fragments.finding).toContain('Oct 2023');
+  });
+
+  it('should include percentile in fragments', () => {
+    const age: FileAge = {
+      file: 'app.ts',
+      ageMonths: 24,
+      lastModified: '2023-10-15',
+      exists: true,
+    };
+    const result = generateStaleCodeInsight(age, thresholds, ageRanker);
+
+    expect(result!.fragments.finding).toContain('P85');
   });
 });
 
 describe('generateChurnInsight', () => {
-  it('should return null when churn below warning threshold', () => {
-    const churn: FileChurn = {
-      file: 'app.ts',
-      added: 200,
-      deleted: 100,
-      churn: 300,
-      revisions: 5,
-      exists: true,
-    };
-    expect(generateChurnInsight(churn, thresholds)).toBeNull();
-  });
+  const churnDist = [100, 200, 400, 600, 800, 1200, 1500, 2000, 2500, 3500];
+  const churnRanker = createPercentileRanker(churnDist);
 
-  it('should return warning for churn >= warning threshold', () => {
+  it('should return null when percentile below warning', () => {
+    // 800 → P45: (4 below + 0.5*1)/10*100 = 45 → below 75
     const churn: FileChurn = {
       file: 'app.ts',
-      added: 800,
-      deleted: 400,
-      churn: 1200,
+      added: 500,
+      deleted: 300,
+      churn: 800,
       revisions: 10,
       exists: true,
     };
-    const result = generateChurnInsight(churn, thresholds);
+    expect(generateChurnInsight(churn, thresholds, churnRanker)).toBeNull();
+  });
+
+  it('should return warning for P75-P89', () => {
+    // 2000 → P75: (7 below + 0.5*1)/10*100 = 75 → at warning
+    const churn: FileChurn = {
+      file: 'app.ts',
+      added: 1200,
+      deleted: 800,
+      churn: 2000,
+      revisions: 15,
+      exists: true,
+    };
+    const result = generateChurnInsight(churn, thresholds, churnRanker);
 
     expect(result).not.toBeNull();
     expect(result!.severity).toBe('warning');
     expect(result!.type).toBe('high-churn');
   });
 
-  it('should return critical for churn >= critical threshold', () => {
+  it('should return critical for P90+', () => {
+    // 3500 → P95: (9 below + 0.5*1)/10*100 = 95 → above 90
     const churn: FileChurn = {
       file: 'app.ts',
       added: 2500,
@@ -296,7 +360,7 @@ describe('generateChurnInsight', () => {
       revisions: 20,
       exists: true,
     };
-    const result = generateChurnInsight(churn, thresholds);
+    const result = generateChurnInsight(churn, thresholds, churnRanker);
 
     expect(result!.severity).toBe('critical');
   });
@@ -304,16 +368,67 @@ describe('generateChurnInsight', () => {
   it('should format churn numbers with commas', () => {
     const churn: FileChurn = {
       file: 'app.ts',
-      added: 1800,
-      deleted: 600,
-      churn: 2400,
+      added: 1200,
+      deleted: 800,
+      churn: 2000,
       revisions: 15,
       exists: true,
     };
-    const result = generateChurnInsight(churn, thresholds);
+    const result = generateChurnInsight(churn, thresholds, churnRanker);
 
-    expect(result!.fragments.finding).toContain('2,400');
-    expect(result!.fragments.finding).toContain('+1,800');
-    expect(result!.fragments.finding).toContain('-600');
+    expect(result!.fragments.finding).toContain('2,000');
+    expect(result!.fragments.finding).toContain('+1,200');
+    expect(result!.fragments.finding).toContain('-800');
+  });
+
+  it('should include percentile in data', () => {
+    const churn: FileChurn = {
+      file: 'app.ts',
+      added: 1200,
+      deleted: 800,
+      churn: 2000,
+      revisions: 15,
+      exists: true,
+    };
+    const result = generateChurnInsight(churn, thresholds, churnRanker);
+
+    expect(result!.data.type === 'high-churn' && result!.data.percentile).toBe(75);
+  });
+});
+
+describe('generateCouplingScoreInsight', () => {
+  const couplingDist = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const couplingRanker = createPercentileRanker(couplingDist);
+
+  it('should return null when percentile below warning', () => {
+    const coupling: FileCoupling = { file: 'app.ts', couplingScore: 5, exists: true };
+    // 5 → P45: (4 below + 0.5*1)/10*100 = 45
+    expect(generateCouplingScoreInsight(coupling, 5, thresholds, couplingRanker)).toBeNull();
+  });
+
+  it('should return warning for P75-P89', () => {
+    const coupling: FileCoupling = { file: 'app.ts', couplingScore: 8, exists: true };
+    // 8 → P75: (7 below + 0.5*1)/10*100 = 75
+    const result = generateCouplingScoreInsight(coupling, 3, thresholds, couplingRanker);
+
+    expect(result).not.toBeNull();
+    expect(result!.severity).toBe('warning');
+    expect(result!.type).toBe('coupling-score');
+  });
+
+  it('should return critical for P90+', () => {
+    const coupling: FileCoupling = { file: 'app.ts', couplingScore: 10, exists: true };
+    // 10 → P95: (9 below + 0.5*1)/10*100 = 95
+    const result = generateCouplingScoreInsight(coupling, 1, thresholds, couplingRanker);
+
+    expect(result!.severity).toBe('critical');
+  });
+
+  it('should include percentile in fragments and data', () => {
+    const coupling: FileCoupling = { file: 'app.ts', couplingScore: 8, exists: true };
+    const result = generateCouplingScoreInsight(coupling, 3, thresholds, couplingRanker);
+
+    expect(result!.fragments.finding).toContain('P75');
+    expect(result!.data.type === 'coupling-score' && result!.data.percentile).toBe(75);
   });
 });

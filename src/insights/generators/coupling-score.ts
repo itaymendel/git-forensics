@@ -4,23 +4,25 @@ import type { FileInsight, InsightThresholds, InsightSeverity } from '../types.j
 export function generateCouplingScoreInsight(
   coupling: FileCoupling,
   rank: number,
-  thresholds: InsightThresholds
+  thresholds: InsightThresholds,
+  percentileRank: (value: number) => number
 ): FileInsight | null {
   const { couplingScore } = coupling;
-  const { warning, critical } = thresholds.couplingScore;
+  const percentile = percentileRank(couplingScore);
 
-  if (couplingScore < warning) return null;
+  if (percentile < thresholds.couplingScore.warning) return null;
 
-  const severity: InsightSeverity = couplingScore >= critical ? 'critical' : 'warning';
+  const severity: InsightSeverity =
+    percentile >= thresholds.couplingScore.critical ? 'critical' : 'warning';
 
   return {
     file: coupling.file,
     type: 'coupling-score',
     severity,
-    data: { type: 'coupling-score', couplingScore, rank },
+    data: { type: 'coupling-score', couplingScore, rank, percentile },
     fragments: {
       title: 'Architectural Hub',
-      finding: `Coupled to ${couplingScore} other files, ranked #${rank}`,
+      finding: `Coupled to ${couplingScore} other files (P${Math.round(percentile)}), ranked #${rank}`,
       risk: 'High fan-out amplifies blast radius of changes and increases regression risk',
       suggestion: 'Ensure coupled files are tested; consider decoupling if appropriate',
     },

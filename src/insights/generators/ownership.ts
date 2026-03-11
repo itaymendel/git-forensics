@@ -3,18 +3,22 @@ import type { FileInsight, InsightThresholds, InsightSeverity } from '../types.j
 
 export function generateOwnershipInsight(
   ownership: FileOwnership,
-  thresholds: InsightThresholds
+  thresholds: InsightThresholds,
+  percentileRank: (value: number) => number
 ): FileInsight | null {
-  const { warning, critical, minAuthors } = thresholds.ownershipRisk;
+  const { minAuthors } = thresholds.ownershipRisk;
   const { fractalValue, authorCount, mainDev } = ownership;
 
   // Skip if not enough authors to be considered fragmented
   if (authorCount < minAuthors) return null;
 
-  // Skip if ownership is concentrated enough (higher fractal = more concentrated)
-  if (fractalValue > warning) return null;
+  // Inverted ranker: low fractalValue → high percentile (more fragmented = higher risk)
+  const percentile = percentileRank(fractalValue);
 
-  const severity: InsightSeverity = fractalValue <= critical ? 'critical' : 'warning';
+  if (percentile < thresholds.ownershipRisk.warning) return null;
+
+  const severity: InsightSeverity =
+    percentile >= thresholds.ownershipRisk.critical ? 'critical' : 'warning';
 
   return {
     file: ownership.file,
@@ -25,10 +29,11 @@ export function generateOwnershipInsight(
       fractalValue,
       authorCount,
       mainDev,
+      percentile,
     },
     fragments: {
       title: 'Fragmented Ownership',
-      finding: `${authorCount} contributors, fragmentation score ${fractalValue.toFixed(2)}`,
+      finding: `${authorCount} contributors, fragmentation score ${fractalValue.toFixed(2)} (P${Math.round(percentile)})`,
       risk: 'Diffuse ownership slows review cycles and increases merge conflicts',
       suggestion: `Request review from ${mainDev} (primary contributor)`,
     },

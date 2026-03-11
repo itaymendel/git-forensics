@@ -8,15 +8,16 @@ function formatDate(isoDate: string): string {
 
 export function generateStaleCodeInsight(
   age: FileAge,
-  thresholds: InsightThresholds
+  thresholds: InsightThresholds,
+  percentileRank: (value: number) => number
 ): FileInsight | null {
-  const { warning, critical } = thresholds.staleCode;
   const { ageMonths, lastModified } = age;
+  const percentile = percentileRank(ageMonths);
 
-  if (ageMonths < warning) return null;
+  if (percentile < thresholds.staleCode.warning) return null;
 
-  // Stale code uses info/warning (not critical) since it's less severe
-  const severity: InsightSeverity = ageMonths >= critical ? 'warning' : 'info';
+  const severity: InsightSeverity =
+    percentile >= thresholds.staleCode.critical ? 'critical' : 'warning';
 
   return {
     file: age.file,
@@ -26,10 +27,11 @@ export function generateStaleCodeInsight(
       type: 'stale-code',
       ageMonths,
       lastModified,
+      percentile,
     },
     fragments: {
       title: 'Stale Code',
-      finding: `Unchanged for ${ageMonths} months (since ${formatDate(lastModified)})`,
+      finding: `Unchanged for ${ageMonths} months (P${Math.round(percentile)}) (since ${formatDate(lastModified)})`,
       risk: 'Untouched code drifts from current conventions and loses institutional knowledge',
       suggestion: 'Extra review recommended; verify tests still cover this code',
     },

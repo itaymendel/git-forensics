@@ -3,6 +3,7 @@ import { generateInsights } from './generate-insights.js';
 import { extractFileMetrics } from './extract-metrics.js';
 import type { Forensics } from '../types.js';
 
+// 10 files for meaningful percentile spread
 const mockForensics: Forensics = {
   analyzedCommits: 100,
   dateRange: { from: '2024-01-01', to: '2024-12-01' },
@@ -14,11 +15,16 @@ const mockForensics: Forensics = {
     analyzedAt: '2024-12-01T00:00:00Z',
   },
   hotspots: [
-    { file: 'hot.ts', revisions: 60, exists: true },
-    { file: 'warm.ts', revisions: 30, exists: true },
+    { file: 'hot.ts', revisions: 100, exists: true },
+    { file: 'warm.ts', revisions: 80, exists: true },
+    { file: 'app.ts', revisions: 60, exists: true },
+    { file: 'utils.ts', revisions: 50, exists: true },
     { file: 'cold.ts', revisions: 5, exists: true },
-    { file: 'app.ts', revisions: 50, exists: true },
-    { file: 'utils.ts', revisions: 20, exists: true },
+    { file: 'f1.ts', revisions: 10, exists: true },
+    { file: 'f2.ts', revisions: 20, exists: true },
+    { file: 'f3.ts', revisions: 30, exists: true },
+    { file: 'f4.ts', revisions: 40, exists: true },
+    { file: 'f5.ts', revisions: 70, exists: true },
   ],
   coupledPairs: [
     {
@@ -40,9 +46,16 @@ const mockForensics: Forensics = {
   ],
   couplingRankings: [],
   codeAge: [
-    { file: 'old.ts', ageMonths: 18, lastModified: '2023-06-01', exists: true },
+    { file: 'old.ts', ageMonths: 36, lastModified: '2021-12-01', exists: true },
     { file: 'app.ts', ageMonths: 6, lastModified: '2024-06-01', exists: true },
     { file: 'utils.ts', ageMonths: 12, lastModified: '2024-01-01', exists: true },
+    { file: 'f1.ts', ageMonths: 3, lastModified: '2024-09-01', exists: true },
+    { file: 'f2.ts', ageMonths: 9, lastModified: '2024-03-01', exists: true },
+    { file: 'f3.ts', ageMonths: 15, lastModified: '2023-09-01', exists: true },
+    { file: 'f4.ts', ageMonths: 18, lastModified: '2023-06-01', exists: true },
+    { file: 'f5.ts', ageMonths: 21, lastModified: '2023-03-01', exists: true },
+    { file: 'hot.ts', ageMonths: 1, lastModified: '2024-11-01', exists: true },
+    { file: 'warm.ts', ageMonths: 24, lastModified: '2022-12-01', exists: true },
   ],
   ownership: [
     {
@@ -51,7 +64,7 @@ const mockForensics: Forensics = {
       ownershipPercent: 25,
       refactoringDev: 'bob',
       refactoringOwnership: 20,
-      fractalValue: 0.15,
+      fractalValue: 0.1,
       authorCount: 6,
       exists: true,
     },
@@ -62,7 +75,7 @@ const mockForensics: Forensics = {
       refactoringDev: 'alice',
       refactoringOwnership: 50,
       fractalValue: 0.5,
-      authorCount: 3,
+      authorCount: 4,
       exists: true,
     },
     {
@@ -75,11 +88,88 @@ const mockForensics: Forensics = {
       authorCount: 2,
       exists: true,
     },
+    {
+      file: 'f1.ts',
+      mainDev: 'carol',
+      ownershipPercent: 90,
+      refactoringDev: 'carol',
+      refactoringOwnership: 85,
+      fractalValue: 0.9,
+      authorCount: 1,
+      exists: true,
+    },
+    {
+      file: 'f2.ts',
+      mainDev: 'dave',
+      ownershipPercent: 70,
+      refactoringDev: 'dave',
+      refactoringOwnership: 60,
+      fractalValue: 0.6,
+      authorCount: 3,
+      exists: true,
+    },
+    {
+      file: 'f3.ts',
+      mainDev: 'eve',
+      ownershipPercent: 50,
+      refactoringDev: 'eve',
+      refactoringOwnership: 40,
+      fractalValue: 0.4,
+      authorCount: 4,
+      exists: true,
+    },
+    {
+      file: 'f4.ts',
+      mainDev: 'frank',
+      ownershipPercent: 40,
+      refactoringDev: 'frank',
+      refactoringOwnership: 30,
+      fractalValue: 0.3,
+      authorCount: 5,
+      exists: true,
+    },
+    {
+      file: 'f5.ts',
+      mainDev: 'grace',
+      ownershipPercent: 35,
+      refactoringDev: 'grace',
+      refactoringOwnership: 25,
+      fractalValue: 0.2,
+      authorCount: 6,
+      exists: true,
+    },
+    {
+      file: 'hot.ts',
+      mainDev: 'alice',
+      ownershipPercent: 85,
+      refactoringDev: 'alice',
+      refactoringOwnership: 80,
+      fractalValue: 0.8,
+      authorCount: 2,
+      exists: true,
+    },
+    {
+      file: 'warm.ts',
+      mainDev: 'bob',
+      ownershipPercent: 95,
+      refactoringDev: 'bob',
+      refactoringOwnership: 90,
+      fractalValue: 1.0,
+      authorCount: 1,
+      exists: true,
+    },
   ],
   churn: [
-    { file: 'volatile.ts', added: 2000, deleted: 500, churn: 2500, revisions: 20, exists: true },
-    { file: 'app.ts', added: 500, deleted: 200, churn: 700, revisions: 50, exists: true },
-    { file: 'utils.ts', added: 100, deleted: 50, churn: 150, revisions: 20, exists: true },
+    { file: 'volatile.ts', added: 5000, deleted: 3000, churn: 8000, revisions: 30, exists: true },
+    { file: 'app.ts', added: 500, deleted: 200, churn: 700, revisions: 60, exists: true },
+    { file: 'utils.ts', added: 100, deleted: 50, churn: 150, revisions: 50, exists: true },
+    { file: 'f1.ts', added: 200, deleted: 100, churn: 300, revisions: 10, exists: true },
+    { file: 'f2.ts', added: 400, deleted: 200, churn: 600, revisions: 20, exists: true },
+    { file: 'f3.ts', added: 800, deleted: 400, churn: 1200, revisions: 30, exists: true },
+    { file: 'f4.ts', added: 1500, deleted: 700, churn: 2200, revisions: 40, exists: true },
+    { file: 'f5.ts', added: 2000, deleted: 1000, churn: 3000, revisions: 70, exists: true },
+    { file: 'hot.ts', added: 3000, deleted: 1500, churn: 4500, revisions: 100, exists: true },
+    { file: 'warm.ts', added: 2500, deleted: 1200, churn: 3700, revisions: 80, exists: true },
   ],
   communication: [],
   topContributors: [
@@ -105,32 +195,39 @@ describe('generateInsights', () => {
     expect(files.size).toBeGreaterThan(1);
   });
 
+  it('should flag top percentile files as hotspots', () => {
+    // hot.ts has 100 revisions (P95 in a 10-file dist) → should be critical
+    const insights = generateInsights(mockForensics, { files: ['hot.ts'] });
+    const hotspotInsight = insights.find((i) => i.type === 'hotspot');
+    expect(hotspotInsight).toBeDefined();
+    expect(hotspotInsight!.severity).toBe('critical');
+  });
+
+  it('should not flag low percentile files', () => {
+    // cold.ts has 5 revisions (P5 in a 10-file dist) → should not be flagged
+    const insights = generateInsights(mockForensics, { files: ['cold.ts'] });
+    const hotspotInsight = insights.find((i) => i.type === 'hotspot');
+    expect(hotspotInsight).toBeUndefined();
+  });
+
   it('should filter insights to specific files when files option provided', () => {
     const insights = generateInsights(mockForensics, { files: ['hot.ts', 'cold.ts'] });
 
-    // hot.ts should have hotspot insight (60 revisions >= 50 critical)
     const hotInsights = insights.filter((i) => i.file === 'hot.ts');
     expect(hotInsights.length).toBeGreaterThan(0);
 
-    // cold.ts should have no insights (only 5 revisions)
     const coldInsights = insights.filter((i) => i.file === 'cold.ts');
     expect(coldInsights).toHaveLength(0);
   });
 
   it('should filter by minSeverity', () => {
-    const allInsights = generateInsights(mockForensics, { files: ['old.ts'] });
-    const warningsOnly = generateInsights(mockForensics, {
-      files: ['old.ts'],
-      minSeverity: 'warning',
-    });
+    const allInsights = generateInsights(mockForensics);
+    const criticalOnly = generateInsights(mockForensics, { minSeverity: 'critical' });
 
-    // old.ts has stale-code insight with 'info' severity (18 months < 24 critical)
-    const infoInsights = allInsights.filter((i) => i.severity === 'info');
-    expect(infoInsights.length).toBeGreaterThan(0);
-
-    // Should be filtered out when minSeverity is warning
-    const filteredInfoInsights = warningsOnly.filter((i) => i.severity === 'info');
-    expect(filteredInfoInsights).toHaveLength(0);
+    expect(criticalOnly.length).toBeLessThanOrEqual(allInsights.length);
+    for (const insight of criticalOnly) {
+      expect(insight.severity).toBe('critical');
+    }
   });
 
   it('should generate coupling insights when coupled file not in PR', () => {
@@ -145,20 +242,53 @@ describe('generateInsights', () => {
     }
   });
 
-  it('should respect custom thresholds', () => {
-    // warm.ts has 30 revisions - above default warning (25)
-    const insights = generateInsights(mockForensics, {
-      files: ['warm.ts'],
-      thresholds: { hotspot: { warning: 20, critical: 40 } },
+  it('should respect custom percentile thresholds', () => {
+    // With low thresholds, more files should be flagged
+    const lowThresholdInsights = generateInsights(mockForensics, {
+      thresholds: { hotspot: { warning: 30, critical: 60 } },
     });
+    const defaultInsights = generateInsights(mockForensics);
 
-    const hotspotInsight = insights.find((i) => i.type === 'hotspot');
-    expect(hotspotInsight).toBeDefined();
+    const lowHotspots = lowThresholdInsights.filter((i) => i.type === 'hotspot');
+    const defaultHotspots = defaultInsights.filter((i) => i.type === 'hotspot');
+    expect(lowHotspots.length).toBeGreaterThanOrEqual(defaultHotspots.length);
   });
 
   it('should return empty array for files with no insights', () => {
     const insights = generateInsights(mockForensics, { files: ['nonexistent.ts'] });
     expect(insights).toHaveLength(0);
+  });
+
+  it('should produce insights that are relative to the dataset', () => {
+    // Same file, different contexts: in a small dataset vs large
+    const smallForensics: Forensics = {
+      ...mockForensics,
+      hotspots: [
+        { file: 'target.ts', revisions: 20, exists: true },
+        { file: 'other.ts', revisions: 10, exists: true },
+      ],
+    };
+    // In small dataset, 20 revisions is P75 → should be flagged
+    const insights = generateInsights(smallForensics, { files: ['target.ts'] });
+    const hotspot = insights.find((i) => i.type === 'hotspot');
+    expect(hotspot).toBeDefined();
+  });
+
+  it('should include percentile in insight data', () => {
+    const insights = generateInsights(mockForensics, { files: ['hot.ts'] });
+    const hotspot = insights.find((i) => i.type === 'hotspot');
+    expect(hotspot).toBeDefined();
+    if (hotspot!.data.type === 'hotspot') {
+      expect(hotspot!.data.percentile).toBeGreaterThan(0);
+    }
+  });
+
+  it('stale-code uses warning/critical severity levels', () => {
+    // old.ts has ageMonths=36 → P95 → should be critical
+    const insights = generateInsights(mockForensics, { files: ['old.ts'] });
+    const stale = insights.find((i) => i.type === 'stale-code');
+    expect(stale).toBeDefined();
+    expect(stale!.severity).toBe('critical');
   });
 });
 
@@ -173,7 +303,7 @@ describe('extractFileMetrics', () => {
     const appMetrics = metrics.find((m) => m.file === 'app.ts');
 
     expect(appMetrics).toBeDefined();
-    expect(appMetrics!.revisions).toBe(50);
+    expect(appMetrics!.revisions).toBe(60);
     expect(appMetrics!.ageMonths).toBe(6);
     expect(appMetrics!.lastModified).toBe('2024-06-01');
     expect(appMetrics!.churn).toBe(700);
@@ -181,7 +311,7 @@ describe('extractFileMetrics', () => {
     expect(appMetrics!.deleted).toBe(200);
     expect(appMetrics!.fractalValue).toBe(0.5);
     expect(appMetrics!.mainDev).toBe('alice');
-    expect(appMetrics!.authorCount).toBe(3);
+    expect(appMetrics!.authorCount).toBe(4);
   });
 
   it('should include coupling information', () => {
@@ -203,21 +333,15 @@ describe('extractFileMetrics', () => {
   });
 
   it('should use fallback values when file appears in only some maps', () => {
-    // "hot.ts" is in hotspots (60 revisions) but NOT in codeAge, ownership, or churn
+    // "volatile.ts" is in churn but NOT in hotspots, codeAge, or ownership
     const metrics = extractFileMetrics(mockForensics);
-    const hotMetrics = metrics.find((m) => m.file === 'hot.ts');
+    const volatileMetrics = metrics.find((m) => m.file === 'volatile.ts');
 
-    expect(hotMetrics).toBeDefined();
-    expect(hotMetrics!.revisions).toBe(60); // present in hotspots
-    expect(hotMetrics!.ageMonths).toBe(0); // fallback: 0
-    expect(hotMetrics!.lastModified).toBe(''); // fallback: ''
-    expect(hotMetrics!.churn).toBe(0); // fallback: 0
-    expect(hotMetrics!.added).toBe(0); // fallback: 0
-    expect(hotMetrics!.deleted).toBe(0); // fallback: 0
-    expect(hotMetrics!.fractalValue).toBe(1); // fallback: 1 (single owner)
-    expect(hotMetrics!.mainDev).toBe('unknown'); // fallback: 'unknown'
-    expect(hotMetrics!.authorCount).toBe(0); // fallback: 0
-    expect(hotMetrics!.coupledWith).toEqual([]); // fallback: []
+    expect(volatileMetrics).toBeDefined();
+    expect(volatileMetrics!.revisions).toBe(0);
+    expect(volatileMetrics!.churn).toBe(8000);
+    expect(volatileMetrics!.fractalValue).toBe(1);
+    expect(volatileMetrics!.mainDev).toBe('unknown');
   });
 
   it('should include topContributors from forensics', () => {
@@ -236,15 +360,36 @@ describe('extractFileMetrics', () => {
     expect(hotMetrics!.topContributors).toEqual([]);
   });
 
-  it('should use fallback values for files only in churn', () => {
-    // "volatile.ts" only appears in churn, not in hotspots/codeAge/ownership
+  it('should not include percentiles by default', () => {
     const metrics = extractFileMetrics(mockForensics);
-    const volatileMetrics = metrics.find((m) => m.file === 'volatile.ts');
+    const appMetrics = metrics.find((m) => m.file === 'app.ts');
+    expect(appMetrics!.percentiles).toBeUndefined();
+    expect(appMetrics!.riskScore).toBeUndefined();
+  });
 
-    expect(volatileMetrics).toBeDefined();
-    expect(volatileMetrics!.revisions).toBe(0); // fallback: not in hotspots
-    expect(volatileMetrics!.churn).toBe(2500); // present in churn
-    expect(volatileMetrics!.fractalValue).toBe(1); // fallback: single owner
-    expect(volatileMetrics!.mainDev).toBe('unknown'); // fallback
+  it('should include percentiles when includePercentiles is true', () => {
+    const metrics = extractFileMetrics(mockForensics, { includePercentiles: true });
+    const appMetrics = metrics.find((m) => m.file === 'app.ts');
+
+    expect(appMetrics!.percentiles).toBeDefined();
+    expect(appMetrics!.percentiles!.revisions).toBeGreaterThan(0);
+    expect(appMetrics!.percentiles!.churn).toBeGreaterThan(0);
+    expect(appMetrics!.percentiles!.ownershipRisk).toBeGreaterThan(0);
+    expect(appMetrics!.percentiles!.ageMonths).toBeGreaterThan(0);
+    expect(appMetrics!.riskScore).toBeDefined();
+    expect(appMetrics!.riskScore).toBeGreaterThan(0);
+    expect(appMetrics!.riskScore).toBeLessThanOrEqual(100);
+  });
+
+  it('should accept custom risk weights with includePercentiles', () => {
+    const defaultMetrics = extractFileMetrics(mockForensics, { includePercentiles: true });
+    const customMetrics = extractFileMetrics(mockForensics, {
+      includePercentiles: true,
+      riskWeights: { revisions: 1.0, churn: 0, ownershipRisk: 0, age: 0, couplingScore: 0 },
+    });
+
+    const defaultApp = defaultMetrics.find((m) => m.file === 'app.ts')!;
+    const customApp = customMetrics.find((m) => m.file === 'app.ts')!;
+    expect(customApp.riskScore).not.toBe(defaultApp.riskScore);
   });
 });

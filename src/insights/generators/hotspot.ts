@@ -4,23 +4,25 @@ import type { FileInsight, InsightThresholds, InsightSeverity } from '../types.j
 export function generateHotspotInsight(
   hotspot: FileRevisions,
   rank: number,
-  thresholds: InsightThresholds
+  thresholds: InsightThresholds,
+  percentileRank: (value: number) => number
 ): FileInsight | null {
   const { revisions } = hotspot;
-  const { warning, critical } = thresholds.hotspot;
+  const percentile = percentileRank(revisions);
 
-  if (revisions < warning) return null;
+  if (percentile < thresholds.hotspot.warning) return null;
 
-  const severity: InsightSeverity = revisions >= critical ? 'critical' : 'warning';
+  const severity: InsightSeverity =
+    percentile >= thresholds.hotspot.critical ? 'critical' : 'warning';
 
   return {
     file: hotspot.file,
     type: 'hotspot',
     severity,
-    data: { type: 'hotspot', revisions, rank },
+    data: { type: 'hotspot', revisions, rank, percentile },
     fragments: {
       title: 'Hotspot',
-      finding: `${revisions} revisions, ranked #${rank} in repository`,
+      finding: `${revisions} revisions (P${Math.round(percentile)}), ranked #${rank} in repository`,
       risk: 'Top-ranked churn file — prioritize for refactoring or test hardening',
       suggestion: 'Consider breaking into smaller modules or adding test coverage',
     },
